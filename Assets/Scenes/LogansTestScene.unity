@@ -1048,6 +1048,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetCodeSetup
   joinCode: 
+  inputField: {fileID: 0}
 --- !u!1 &1730764509
 GameObject:
   m_ObjectHideFlags: 0

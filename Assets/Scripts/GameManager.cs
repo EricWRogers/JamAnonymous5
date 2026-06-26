@@ -32,8 +32,27 @@ public class GameManager : NetworkBehaviour
 
     void Update()
     {
-        if(!IsServer || !IsHost) return;
+        if(!IsServer) return;
 
-        shiftTimer.Value += Time.deltaTime;
+        shiftTimer.Value = Mathf.Min(shiftTimer.Value + Time.deltaTime, maxShiftTime);
+    }
+
+    public string GetFormattedTime()
+    {
+        float progress = shiftTimer.Value / maxShiftTime;
+        float totalInGameMinutes = progress * 14 * 60; //14 hours in min
+
+        int hour = 6 + Mathf.FloorToInt(totalInGameMinutes / 60);
+        int minutes = Mathf.FloorToInt(totalInGameMinutes % 60);
+
+        //Snap to :00 or :30. This way we don't have a stopwatch eque situation which isnt very cool.
+        minutes = minutes >= 30 ? 30 : 0;
+
+        string period = hour >= 12 ? "PM" : "AM";
+        int displayHour = hour > 12 ? hour - 12 : hour;
+
+        return minutes == 0
+            ? $"{displayHour}{period}"
+            : $"{displayHour}:{minutes:D2}{period}";
     }
 }
