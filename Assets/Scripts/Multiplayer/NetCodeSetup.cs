@@ -16,6 +16,7 @@ public class NetCodeSetup : MonoBehaviour
 
     private UnityTransport transport;
 
+    public GameObject gameManagerPrefab;
     async void Start()
     {
         transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
@@ -63,6 +64,9 @@ public class NetCodeSetup : MonoBehaviour
         GameManager.Instance.SetJoinCode(joinCode);
 
         Debug.Log("Host started");
+
+        var gm = Instantiate(gameManagerPrefab);
+        gm.GetComponent<NetworkObject>().Spawn();
     }
 
     public async void StartClient()
