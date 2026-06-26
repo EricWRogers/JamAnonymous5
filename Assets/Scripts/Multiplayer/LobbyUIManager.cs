@@ -4,56 +4,64 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine.SceneManagement;
 
-public class LobbyUIManager : MonoBehaviour
+public class LobbyUIManager : NetworkBehaviour
 {
-   public Transform container;
+    public Transform container;
     public GameObject entryPrefab;
 
     private readonly List<GameObject> players = new();
+    private NetworkList<ulong> clientIds;
 
     public TMP_Text joinCodeText;
 
-    void OnEnable()
+    void Awake()
     {
-        //Very handy for watching players join n leave.
-        NetworkManager.Singleton.OnClientConnectedCallback += Refresh;
-        NetworkManager.Singleton.OnClientDisconnectCallback += Refresh;
+        clientIds = new NetworkList<ulong>();
     }
 
-    void OnDisable()
-    {
-        if (NetworkManager.Singleton == null) return;
-
-        NetworkManager.Singleton.OnClientConnectedCallback -= Refresh;
-        NetworkManager.Singleton.OnClientDisconnectCallback -= Refresh;
-    }
-
-    void Start()
+    public override void OnNetworkSpawn()
     {
         joinCodeText.text = GameManager.Instance.JoinCode;
+        //We will be watching this on all clients so we know to update.
+        clientIds.OnListChanged += OnListChanged;
 
-        //Rebuild on start.
-        Refresh(0);
-    }
+        if (IsServer)
+        {
+            //Handy but only runs on host/server
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
 
-    void Refresh(ulong _) //It is what it is. Netcode wants a ulong.
-    {
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+                clientIds.Add(client.ClientId);
+        }
+
         Rebuild();
     }
 
-    void Rebuild()
+    public override void OnNetworkDespawn()
     {
-        for (int i = 0; i < players.Count; i++)
-            Destroy(players[i]);
+        clientIds.OnListChanged -= OnListChanged;
 
+        if (IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+        }
+    }
+
+    void OnClientConnected(ulong clientId) => clientIds.Add(clientId);
+    void OnClientDisconnected(ulong clientId) => clientIds.Remove(clientId);
+    void OnListChanged(NetworkListEvent<ulong> _) => Rebuild();
+
+    void Rebuild() //Just rebuild the list of clients whenever someone joins or leaves.
+    {
+        foreach (var obj in players) Destroy(obj);
         players.Clear();
 
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        foreach (var clientId in clientIds)
         {
             var obj = Instantiate(entryPrefab, container);
-            obj.GetComponent<PlayerLobbyUI>()
-               .SetName($"Player {client.ClientId}");
-
+            obj.GetComponent<PlayerLobbyUI>().SetName($"Player {clientId}");
             players.Add(obj);
         }
     }
@@ -66,7 +74,6 @@ public class LobbyUIManager : MonoBehaviour
             return;
         }
 
-        NetworkManager.Singleton.SceneManager.LoadScene("Game",LoadSceneMode.Single);
+        NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
     }
-
 }
