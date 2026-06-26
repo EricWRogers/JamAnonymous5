@@ -21,7 +21,7 @@ public class LobbyUIManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        joinCodeText.text = GameManager.Instance.JoinCode;
+        joinCodeText.text = "CODE: " + GameManager.Instance.JoinCode;
         //We will be watching this on all clients so we know to update.
         clientIds.OnListChanged += OnListChanged;
 
@@ -32,7 +32,10 @@ public class LobbyUIManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
 
             foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                GameManager.Instance.AssignColor(client.ClientId);
                 clientIds.Add(client.ClientId);
+            }
         }
 
         Rebuild();
@@ -49,7 +52,11 @@ public class LobbyUIManager : NetworkBehaviour
         }
     }
 
-    void OnClientConnected(ulong clientId) => clientIds.Add(clientId);
+    void OnClientConnected(ulong clientId) {
+
+        GameManager.Instance.AssignColor(clientId);
+        clientIds.Add(clientId);
+    } 
     void OnClientDisconnected(ulong clientId) => clientIds.Remove(clientId);
     void OnListChanged(NetworkListEvent<ulong> _) => Rebuild();
 
@@ -59,11 +66,12 @@ public class LobbyUIManager : NetworkBehaviour
         players.Clear();
 
         foreach (var clientId in clientIds)
-        {
-            var obj = Instantiate(entryPrefab, container);
-            obj.GetComponent<PlayerLobbyUI>().SetName($"Player {clientId}");
-            players.Add(obj);
-        }
+{
+        var obj = Instantiate(entryPrefab, container);
+        var color = GameManager.Instance.GetColor(clientId);
+        obj.GetComponent<PlayerLobbyUI>().SetName($"Player {clientId}", color);
+        players.Add(obj);
+}
     }
 
     public void StartGame()

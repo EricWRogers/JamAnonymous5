@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Netcode;  
 using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 public class GameManager : NetworkBehaviour
 {
     //This whole thing may need to be a networkobj.
@@ -12,6 +13,19 @@ public class GameManager : NetworkBehaviour
     public NetworkVariable<float> shiftTimer = new();
 
     public float maxShiftTime = 600f; //10 minutes. The huds know what to do with this. Should be 8pm is the end of shift.
+
+    private readonly Color32[] palette = new Color32[]
+    {
+        new(220, 80,  80,  255), //red
+        new(80,  140, 220, 255), //blue
+        new(80,  200, 120, 255), //green
+        new(220, 180, 60,  255), //yellow
+    };
+
+    private readonly Dictionary<ulong, Color32> playerColors = new();
+
+    ulong[] GetIds() => new List<ulong>(playerColors.Keys).ToArray();
+    Color32[] GetColors() => new List<Color32>(playerColors.Values).ToArray();
 
     void Awake()
     {
@@ -59,4 +73,27 @@ public class GameManager : NetworkBehaviour
             ? $"{displayHour}{period}"
             : $"{displayHour}:{minutes:D2}{period}";
     }
+
+    public void AssignColor(ulong clientId)
+    {
+        if (playerColors.ContainsKey(clientId)) return;
+        playerColors[clientId] = palette[playerColors.Count % palette.Length];
+        SyncColorsClientRpc(GetIds(), GetColors());
+    }
+
+    public Color32 GetColor(ulong clientId)
+    {
+        return playerColors.TryGetValue(clientId, out var color) ? color : Color.magenta;
+    }
+
+    [ClientRpc]
+    void SyncColorsClientRpc(ulong[] ids, Color32[] colors)
+    {
+        playerColors.Clear();
+        for (int i = 0; i < ids.Length; i++)
+        {
+            playerColors[ids[i]] = colors[i];
+        }
+    }
+            
 }

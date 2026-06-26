@@ -170,6 +170,7 @@ GameObject:
   - component: {fileID: 7221765365653394853}
   - component: {fileID: 3508587788516675783}
   - component: {fileID: 4557621132037179002}
+  - component: {fileID: 6917401526603007899}
   - component: {fileID: 8347565558212460737}
   - component: {fileID: 1219219688982185366}
   - component: {fileID: 7158608178742779287}
@@ -328,6 +329,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 449
   groundCheckDistance: 1.1
+--- !u!114 &6917401526603007899
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2396489549813162938}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59b3511bf7029f140945c099ab3b1d0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerColor
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &8347565558212460737
 MonoBehaviour:
   m_ObjectHideFlags: 0
