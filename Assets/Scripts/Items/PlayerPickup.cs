@@ -1,8 +1,14 @@
 using Unity.Netcode;
 using UnityEngine;
 
+/// <summary>
+/// Player pickup controller.
+/// Held items are parented to this player's NetworkObject and visually snapped to holdPoint.
+/// </summary>
 public class PlayerPickup : NetworkBehaviour
 {
+    private const ulong NoItem = ulong.MaxValue;
+
     [Header("Pickup Settings")]
     public float pickupRange = 2.5f;
 
@@ -13,20 +19,19 @@ public class PlayerPickup : NetworkBehaviour
     [Header("Layer Mask")]
     public LayerMask pickableLayer;
 
-    private Item heldItem = null;
+    private Item heldItem;
 
     private NetworkVariable<ulong> heldItemNetId = new NetworkVariable<ulong>(
-        ulong.MaxValue,
+        NoItem,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
 
     private InputSystem_Actions inputs;
 
-    private bool IsHoldingItemLocally => heldItemNetId.Value != ulong.MaxValue;
+    private bool IsHoldingItemLocally => heldItemNetId.Value != NoItem;
 
-
-    void Awake()
+    private void Awake()
     {
         inputs = new InputSystem_Actions();
     }
@@ -34,13 +39,13 @@ public class PlayerPickup : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         if (!IsOwner && playerCamera != null)
+        {
             playerCamera.gameObject.SetActive(false);
+        }
     }
 
-    void Update()
+    private void Update()
     {
-
-
         if (!IsOwner) return;
 
         if (inputs.Player.PickUp.WasPressedThisFrame())
@@ -48,112 +53,234 @@ public class PlayerPickup : NetworkBehaviour
             if (!IsHoldingItemLocally)
             {
                 if (TryGetItemInSight(out ulong targetId))
+                {
                     RequestPickUpServerRpc(targetId);
+                }
             }
             else
             {
                 if (TryGetItemInSight(out ulong targetId))
+                {
                     RequestSwapServerRpc(targetId);
+                }
             }
         }
 
         if (inputs.Player.Drop.WasPressedThisFrame() && IsHoldingItemLocally)
+        {
             RequestDropServerRpc();
+        }
     }
 
     [ServerRpc]
-    void RequestPickUpServerRpc(ulong networkObjectId)
+    private void RequestPickUpServerRpc(ulong networkObjectId)
     {
+        if (heldItem != null) return;
+
         if (!TryResolveItem(networkObjectId, out Item target)) return;
+
         PerformPickUp(target);
     }
 
     [ServerRpc]
-    void RequestSwapServerRpc(ulong networkObjectId)
+    private void RequestSwapServerRpc(ulong networkObjectId)
     {
         if (!TryResolveItem(networkObjectId, out Item target)) return;
+
+        if (heldItem == target)
+        {
+            return;
+        }
+
         PerformDrop();
         PerformPickUp(target);
     }
 
     [ServerRpc]
-    void RequestDropServerRpc()
+    private void RequestDropServerRpc()
     {
         PerformDrop();
     }
 
-    bool TryResolveItem(ulong networkObjectId, out Item item)
+    private bool TryResolveItem(ulong networkObjectId, out Item item)
     {
         item = null;
 
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects
-                .TryGetValue(networkObjectId, out var netObj))
+        if (NetworkManager.Singleton == null)
+        {
+            return false;
+        }
+
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject netObj))
         {
             Debug.LogWarning($"[Server] NetworkObject {networkObjectId} not found.");
             return false;
         }
 
         item = netObj.GetComponent<Item>();
+
         if (item == null)
         {
             Debug.LogWarning($"[Server] NetworkObject {networkObjectId} has no Item component.");
             return false;
         }
 
-        float dist = Vector3.Distance(transform.position, item.transform.position);
-        if (dist > pickupRange + 1f)
+        if (item.IsHeld)
         {
-            Debug.LogWarning($"[Server] Player too far from item (dist={dist:F2}). Rejecting.");
+            Debug.LogWarning($"[Server] Item {item.itemName} is already held.");
+            return false;
+        }
+
+        float distance = Vector3.Distance(transform.position, item.transform.position);
+
+        if (distance > pickupRange + 1f)
+        {
+            Debug.LogWarning($"[Server] Player too far from item. Distance: {distance:F2}");
             return false;
         }
 
         return true;
     }
 
-    void PerformPickUp(Item item)
+    private void PerformPickUp(Item item)
     {
+        if (!IsServer) return;
+        if (item == null) return;
+        if (heldItem != null) return;
+
+        bool success = item.ServerStartHolding(this);
+
+        if (!success)
+        {
+            Debug.LogWarning("[Server] Failed to start holding item.");
+            return;
+        }
+
         heldItem = item;
-        heldItem.PickUp(holdPoint);
-        heldItemNetId.Value = heldItem.NetworkObject.NetworkObjectId;
-        Debug.Log($"[Server] {gameObject.name} picked up: {heldItem.itemName}");
+        heldItemNetId.Value = item.NetworkObject.NetworkObjectId;
+
+        Debug.Log($"[Server] {gameObject.name} picked up {item.itemName}");
     }
 
-    void PerformDrop()
+    private void PerformDrop()
     {
+        if (!IsServer) return;
+
+        if (heldItem == null)
+        {
+            TryResolveHeldItem();
+        }
+
         if (heldItem == null) return;
 
-        Vector3 dropPos = transform.position + transform.forward * 1f;
-        heldItem.Drop(dropPos);
-        Debug.Log($"[Server] {gameObject.name} dropped: {heldItem.itemName}");
+        Vector3 dropPosition = GetDropPosition();
+        Quaternion dropRotation = Quaternion.LookRotation(transform.forward, Vector3.up);
+
+        heldItem.ServerStopHolding(dropPosition, dropRotation);
+
+        Debug.Log($"[Server] {gameObject.name} dropped {heldItem.itemName}");
 
         heldItem = null;
-        heldItemNetId.Value = ulong.MaxValue;
+        heldItemNetId.Value = NoItem;
     }
 
-    bool TryGetItemInSight(out ulong networkObjectId)
+    private bool TryResolveHeldItem()
+    {
+        if (heldItemNetId.Value == NoItem) return false;
+
+        if (NetworkManager.Singleton == null) return false;
+
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(heldItemNetId.Value, out NetworkObject netObj))
+        {
+            return false;
+        }
+
+        heldItem = netObj.GetComponent<Item>();
+
+        return heldItem != null;
+    }
+
+    private Vector3 GetDropPosition()
+    {
+        Vector3 basePosition;
+
+        if (holdPoint != null)
+        {
+            basePosition = holdPoint.position;
+        }
+        else
+        {
+            basePosition = transform.position + Vector3.up;
+        }
+
+        return basePosition + transform.forward * 1f;
+    }
+
+    private bool TryGetItemInSight(out ulong networkObjectId)
     {
         networkObjectId = default;
 
+        if (playerCamera == null)
+        {
+            Debug.LogWarning("[Client] Player camera is missing.");
+            return false;
+        }
+
         Ray ray = playerCamera.ScreenPointToRay(
-            new Vector3(Screen.width / 2f, Screen.height / 2f));
+            new Vector3(Screen.width / 2f, Screen.height / 2f, 0f)
+        );
 
         if (!Physics.Raycast(ray, out RaycastHit hit, pickupRange, pickableLayer))
+        {
             return false;
+        }
 
-        var netObj = hit.collider.GetComponent<NetworkObject>();
-        if (netObj == null) return false;
+        NetworkObject netObj = hit.collider.GetComponentInParent<NetworkObject>();
 
-        if (hit.collider.GetComponent<Item>() == null) return false;
+        if (netObj == null)
+        {
+            return false;
+        }
+
+        Item item = netObj.GetComponent<Item>();
+
+        if (item == null)
+        {
+            return false;
+        }
+
+        if (item.IsHeld)
+        {
+            return false;
+        }
 
         networkObjectId = netObj.NetworkObjectId;
         return true;
     }
 
-    public Item GetHeldItem() => heldItem;
+    public Item GetHeldItem()
+    {
+        return heldItem;
+    }
 
-    public bool IsHoldingItem() => IsHoldingItemLocally;
+    public bool IsHoldingItem()
+    {
+        return IsHoldingItemLocally;
+    }
 
+    private void OnEnable()
+    {
+        if (inputs != null)
+        {
+            inputs.Player.Enable();
+        }
+    }
 
-    void OnEnable() => inputs.Player.Enable();
-    void OnDisable() => inputs.Player.Disable();
+    private void OnDisable()
+    {
+        if (inputs != null)
+        {
+            inputs.Player.Disable();
+        }
+    }
 }
