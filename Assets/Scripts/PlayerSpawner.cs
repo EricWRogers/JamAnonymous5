@@ -4,6 +4,7 @@ using UnityEngine;
 public class PlayerSpawner : MonoBehaviour
 {
     public GameObject playerPrefab;
+    public Transform[] spawnPoints;
 
     void Start()
     {
@@ -14,12 +15,16 @@ public class PlayerSpawner : MonoBehaviour
 
     void SpawnPlayers()
     {
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        var clients = NetworkManager.Singleton.ConnectedClientsList;
+
+        for (int i = 0; i < clients.Count; i++)
         {
-            GameObject player = Instantiate(playerPrefab);
+            Transform spawnPoint = spawnPoints[i % spawnPoints.Length];
+
+            GameObject player = Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
 
             player.GetComponent<NetworkObject>()
-                  .SpawnAsPlayerObject(client.ClientId);
+                  .SpawnAsPlayerObject(clients[i].ClientId);
         }
     }
 }
