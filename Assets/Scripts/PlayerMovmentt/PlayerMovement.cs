@@ -5,7 +5,9 @@ using Unity.Netcode;
 public class PlayerMovement : NetworkBehaviour
 {
     [Header("Movement")]
-    public float moveSpeed = 8f;
+    public float walkSpeed = 10f;
+    public float sprintSpeed = 15f;
+
     public float acceleration = 20f;
 
     [Header("Jump")]
@@ -78,8 +80,8 @@ public class PlayerMovement : NetworkBehaviour
     {
         // Move relative to where the player is facing
         Vector3 inputDir = (transform.forward * moveInput.y + transform.right * moveInput.x).normalized;
-
-        Vector3 targetVelocity = inputDir * moveSpeed;
+        float speed = inputs.Player.Sprint.IsPressed() ? sprintSpeed : walkSpeed;
+        Vector3 targetVelocity = inputDir * speed;
         Vector3 velocityChange = new Vector3(
             targetVelocity.x - rb.linearVelocity.x,
             0f,

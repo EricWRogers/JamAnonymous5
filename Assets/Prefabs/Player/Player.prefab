@@ -172,6 +172,7 @@ GameObject:
   - component: {fileID: 4557621132037179002}
   - component: {fileID: 8347565558212460737}
   - component: {fileID: 1219219688982185366}
+  - component: {fileID: 7158608178742779287}
   m_Layer: 0
   m_Name: PlayerOBJ
   m_TagString: Untagged
@@ -194,6 +195,7 @@ Transform:
   m_Children:
   - {fileID: 3227339059474205747}
   - {fileID: 5936708809257373614}
+  - {fileID: 5765021556562259416}
   m_Father: {fileID: 4919750503158927645}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &6091685841151388583
@@ -316,13 +318,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
   ShowTopMostFoldoutHeaderGroup: 1
-  moveSpeed: 6
+  walkSpeed: 10
+  sprintSpeed: 15
   acceleration: 20
   jumpForce: 6
   coyoteTime: 0.12
   groundLayer:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 449
   groundCheckDistance: 1.1
 --- !u!114 &8347565558212460737
 MonoBehaviour:
@@ -387,6 +390,25 @@ MonoBehaviour:
   UseRigidBodyForMotion: 1
   AutoUpdateKinematicState: 1
   AutoSetKinematicOnDespawn: 1
+--- !u!114 &7158608178742779287
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2396489549813162938}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2b5a88d777b760a5b5285830fccbfd3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerPickup
+  ShowTopMostFoldoutHeaderGroup: 1
+  pickupRange: 2.5
+  holdPoint: {fileID: 5765021556562259416}
+  playerCamera: {fileID: 6435271251568795612}
+  pickableLayer:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &5090310822488372904
 GameObject:
   m_ObjectHideFlags: 0
@@ -433,7 +455,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 4215196877
+  GlobalObjectIdHash: 980144791
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -493,6 +515,37 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!1 &5991365129908561052
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5765021556562259416}
+  m_Layer: 0
+  m_Name: HoldPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5765021556562259416
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5991365129908561052}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.168, y: 0.441, z: 0.666}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1370508777914983356}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1103081914308285421
 PrefabInstance:
   m_ObjectHideFlags: 0
