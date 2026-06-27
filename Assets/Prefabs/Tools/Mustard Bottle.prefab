@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 3670612953166997587}
   - component: {fileID: -3445880838861182606}
   - component: {fileID: 2795837596368543422}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Mustard Bottle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
