@@ -27,10 +27,8 @@ public class POS : NetworkBehaviour
     public void SubmitOrder()
     {
         RegisterTest.Instance.NotifyOrderSubmittedServerRpc();
-        GameManager.Instance.SubmitOrderServerRpc(RegisterTest.Instance.CurrentCustomerId);
         ingredientsForOrder.Clear();
         orderText = "";
-        text.text = orderText;
         SubmitOrderServerRpc();
     }
 

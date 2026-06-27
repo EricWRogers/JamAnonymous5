@@ -68,7 +68,10 @@ public class PlayerPickup : NetworkBehaviour
 
         if (inputs.Player.Drop.WasPressedThisFrame() && IsHoldingItemLocally)
         {
-            RequestDropServerRpc();
+            if (TryGetCustomerInSight(out ulong customerNetId))
+                RequestDeliverServerRpc(customerNetId);
+            else
+                RequestDropServerRpc();
         }
     }
 
@@ -383,5 +386,61 @@ public class PlayerPickup : NetworkBehaviour
         {
             inputs.Player.Disable();
         }
+    }
+
+    private bool TryGetCustomerInSight(out ulong customerNetId)
+    {
+        customerNetId = default;
+        if (playerCamera == null) return false;
+
+        Ray ray = playerCamera.ScreenPointToRay(
+            new Vector3(Screen.width / 2f, Screen.height / 2f, 0f)
+        );
+
+        if (Physics.Raycast(ray, out RaycastHit hit, pickupRange * 2f))
+            Debug.Log($"Raycast hit: {hit.collider.gameObject.name}");
+        else
+            Debug.Log("Raycast hit nothing");
+
+        if (!Physics.Raycast(ray, out RaycastHit hit2, pickupRange * 2f)) return false;
+
+        CustomerAI customer = hit2.collider.GetComponentInParent<CustomerAI>();
+        Debug.Log($"Customer found: {customer != null}, State: {(customer != null ? customer.State.ToString() : "N/A")}");
+
+        if (customer == null) return false;
+        if (customer.State != CustomerAI.CustomerState.WaitingForFood) return false;
+
+        customerNetId = customer.NetworkObject.NetworkObjectId;
+        return true;
+    }
+
+    [ServerRpc]
+    private void RequestDeliverServerRpc(ulong customerNetId)
+    {
+        if (heldItem == null || heldItem.itemType != Item.ItemType.Utensil)
+        {
+            Debug.LogWarning("[Server] Player is not holding a tray.");
+            return;
+        }
+
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(customerNetId, out NetworkObject netObj))
+        {
+            Debug.LogWarning("[Server] Customer NetworkObject not found.");
+            return;
+        }
+
+        CustomerAI customer = netObj.GetComponent<CustomerAI>();
+        if (customer == null) return;
+        if (customer.State != CustomerAI.CustomerState.WaitingForFood)
+        {
+            Debug.LogWarning("[Server] Customer is not waiting for food.");
+            return;
+        }
+
+        heldItem.ServerStopHolding(customer.transform.position, Quaternion.identity);
+        heldItem = null;
+        heldItemNetId.Value = NoItem;
+
+        customer.DeliverFood();
     }
 }

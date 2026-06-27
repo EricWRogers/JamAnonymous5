@@ -7,6 +7,7 @@ using Unity.Netcode;
 [System.Serializable]
 public class MealTemplate
 {
+    
     public string mealName;
     public FoodIngredientDefinition[] ingredients;
 }
@@ -41,6 +42,8 @@ public class CustomerAI : NetworkBehaviour
     private NavMeshAgent agent;
     private Seat claimedSeat;
 
+    public float eatingDuration = 10f;
+
     public override void OnNetworkSpawn()
     {
         if (!IsHost) return;
@@ -53,7 +56,7 @@ public class CustomerAI : NetworkBehaviour
         SetState(CustomerState.WalkingToRegister);
     }
 
-        void GenerateOrder()
+    void GenerateOrder()
     {
         if (possibleMeals == null || possibleMeals.Length == 0) return;
         var meal = possibleMeals[Random.Range(0, possibleMeals.Length)];
@@ -66,13 +69,13 @@ public class CustomerAI : NetworkBehaviour
         syncedIngredientNames = names;
         SyncIngredientsClientRpc(string.Join(",", names));
     }
+
     [ClientRpc]
     void SyncIngredientsClientRpc(string ingredientNames)
     {
         if (IsHost) return;
         syncedIngredientNames = new List<string>(ingredientNames.Split(','));
     }
-
 
     public void SetQueueDestination(Vector3 position, bool isAtCounter)
     {
@@ -83,9 +86,17 @@ public class CustomerAI : NetworkBehaviour
             SetState(CustomerState.AtCounter);
     }
 
+    [ClientRpc]
+    void SyncStateClientRpc(CustomerState newState)
+    {
+        if (IsHost) return;
+        State = newState;
+    }
+
     public void SetState(CustomerState newState)
     {
         State = newState;
+        SyncStateClientRpc(newState);
 
         switch (State)
         {
@@ -117,6 +128,8 @@ public class CustomerAI : NetworkBehaviour
                 break;
 
             case CustomerState.Eating:
+                orderUI.Hide();
+                UpdateOrderUIClientRpc((int)CustomerState.Eating);
                 StartCoroutine(EatAndLeave());
                 break;
 
@@ -194,7 +207,7 @@ public class CustomerAI : NetworkBehaviour
 
     IEnumerator EatAndLeave()
     {
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSeconds(eatingDuration);
         SetState(CustomerState.Leaving);
     }
 
@@ -224,6 +237,9 @@ public class CustomerAI : NetworkBehaviour
             case CustomerState.WalkingToSeat:
                 orderUI.StopYapping();
                 orderUI.ShowOrderNumber(customerId.Value);
+                break;
+            case CustomerState.Eating:
+                orderUI.Hide();
                 break;
             case CustomerState.Leaving:
                 orderUI.Hide();
