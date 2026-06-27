@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -77,6 +78,13 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             return ServerTryPlaceOnTray(servingTray);
         }
 
+        CondimentTool condimentTool = GetCondimentTool(heldItem);
+
+        if (condimentTool != null)
+        {
+            return ServerTryApplyCondiment(condimentTool);
+        }
+
         return ServerTryPlaceHeldIngredient(playerPickup, heldItem);
     }
 
@@ -126,6 +134,15 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         if (!HasAnyIngredientData()) return false;
 
         return servingTray.ServerTryLoadFood(this);
+    }
+
+    public bool ServerTryApplyCondiment(CondimentTool condimentTool)
+    {
+        if (!IsServerActive()) return false;
+        if (condimentTool == null) return false;
+        if (IsOnServingTray) return false;
+
+        return condimentTool.ServerTryApplyTo(this);
     }
 
     public bool ServerTrySnapIngredient(FoodIngredient ingredient)
@@ -343,12 +360,45 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             ingredientNetworkObjectId,
             out NetworkObject ingredientNetworkObject))
         {
+            StartCoroutine(ApplySnappedPoseWhenSpawned(ingredientNetworkObjectId, localPosition, localRotation));
             return;
         }
 
         FoodIngredient ingredient = ingredientNetworkObject.GetComponent<FoodIngredient>();
         TrackSnappedIngredient(ingredient);
         ApplySnappedPose(ingredient, localPosition, localRotation);
+    }
+
+    private IEnumerator ApplySnappedPoseWhenSpawned(
+        ulong ingredientNetworkObjectId,
+        Vector3 localPosition,
+        Quaternion localRotation)
+    {
+        const float timeoutSeconds = 2f;
+        float elapsedSeconds = 0f;
+
+        while (elapsedSeconds < timeoutSeconds)
+        {
+            yield return null;
+            elapsedSeconds += Time.deltaTime;
+
+            if (NetworkManager.Singleton == null)
+            {
+                yield break;
+            }
+
+            if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(
+                ingredientNetworkObjectId,
+                out NetworkObject ingredientNetworkObject))
+            {
+                continue;
+            }
+
+            FoodIngredient ingredient = ingredientNetworkObject.GetComponent<FoodIngredient>();
+            TrackSnappedIngredient(ingredient);
+            ApplySnappedPose(ingredient, localPosition, localRotation);
+            yield break;
+        }
     }
 
     private bool IsServerActive()
@@ -430,6 +480,27 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         }
 
         return item.GetComponentInParent<ServingTray>();
+    }
+
+    private CondimentTool GetCondimentTool(Item item)
+    {
+        if (item == null) return null;
+
+        CondimentTool condimentTool = item.GetComponent<CondimentTool>();
+
+        if (condimentTool != null)
+        {
+            return condimentTool;
+        }
+
+        condimentTool = item.GetComponentInChildren<CondimentTool>();
+
+        if (condimentTool != null)
+        {
+            return condimentTool;
+        }
+
+        return item.GetComponentInParent<CondimentTool>();
     }
 
     private void TrackSnappedIngredient(FoodIngredient ingredient)

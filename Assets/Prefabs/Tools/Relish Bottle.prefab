@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: -2526083407130377604}
   - component: {fileID: 5285930368315896838}
   - component: {fileID: -2096757803372159329}
+  - component: {fileID: 811440001000000003}
   m_Layer: 9
   m_Name: Relish Bottle
   m_TagString: Untagged
@@ -127,7 +128,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
   GlobalObjectIdHash: 1733323579
   InScenePlacedSourceGlobalObjectIdHash: 0
@@ -180,10 +181,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e38f10c0949965411b085f3bf6d77d31, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::Item
   ShowTopMostFoldoutHeaderGroup: 1
-  itemName: Item
+  itemName: Relish Bottle
   itemType: 1
 --- !u!114 &-2096757803372159329
 MonoBehaviour:
@@ -195,7 +196,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkTransform
   ShowTopMostFoldoutHeaderGroup: 1
   NetworkTransformExpanded: 0
@@ -231,3 +232,19 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &811440001000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6939706786969920507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ee995e4dfc44774bbaefbb2a7ff9b9d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CondimentTool
+  condimentIngredient: {fileID: 11400000, guid: 3bf81cdf15de4d3c87a07494f52f4028, type: 2}
+  condimentPrefabOverride: {fileID: 0}
+  burgerCondimentPrefab: {fileID: 4596426612414440605, guid: ae399eb70316949cfb8eace782cba38e, type: 3}
+  hotdogCondimentPrefab: {fileID: 4565981910028302600, guid: e334068a4224d5d1391d16623512fa7a, type: 3}

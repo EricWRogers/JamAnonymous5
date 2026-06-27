@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 3670612953166997587}
   - component: {fileID: -3445880838861182606}
   - component: {fileID: 2795837596368543422}
+  - component: {fileID: 811440001000000002}
   m_Layer: 9
   m_Name: Mustard Bottle
   m_TagString: Untagged
@@ -127,7 +128,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
   GlobalObjectIdHash: 2078767411
   InScenePlacedSourceGlobalObjectIdHash: 0
@@ -180,11 +181,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e38f10c0949965411b085f3bf6d77d31, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::Item
   ShowTopMostFoldoutHeaderGroup: 1
-  itemName: Item
-  itemType: 0
+  itemName: Mustard Bottle
+  itemType: 1
 --- !u!114 &2795837596368543422
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -195,7 +196,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkTransform
   ShowTopMostFoldoutHeaderGroup: 1
   NetworkTransformExpanded: 0
@@ -231,3 +232,19 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &811440001000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7353819390494026042}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ee995e4dfc44774bbaefbb2a7ff9b9d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CondimentTool
+  condimentIngredient: {fileID: 11400000, guid: 6fb7c52e9a214c069fa12df20a6cb4a5, type: 2}
+  condimentPrefabOverride: {fileID: 0}
+  burgerCondimentPrefab: {fileID: 2530836116558888188, guid: ae1e12e487e497ed9a58a33761669d2d, type: 3}
+  hotdogCondimentPrefab: {fileID: 5374198899473544682, guid: c44acc2dd93deb18ebc2bafc4325c184, type: 3}

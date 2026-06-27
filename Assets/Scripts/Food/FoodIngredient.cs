@@ -52,6 +52,16 @@ public class FoodIngredient : MonoBehaviour
         cookProgress = GetDefaultCookProgress(cookState);
     }
 
+    public void SetDefinition(FoodIngredientDefinition newDefinition, bool resetState = true)
+    {
+        definition = newDefinition;
+
+        if (resetState)
+        {
+            ResetStateFromDefinition();
+        }
+    }
+
     public void SetCookState(FoodCookState newCookState)
     {
         cookState = newCookState;
