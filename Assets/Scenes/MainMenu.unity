@@ -367,7 +367,6 @@ MonoBehaviour:
       NetworkPrefabsLists:
       - {fileID: 11400000, guid: 0538b983bc08430428278ae585034a71, type: 2}
       - {fileID: 11400000, guid: 8269b3beb1be6b54b8d974c8a22c0cb9, type: 2}
-      - {fileID: 11400000, guid: e9591b2d6ccf02049b2ca6f38650f0de, type: 2}
     TickRate: 30
     ClientConnectionBufferTimeout: 10
     ConnectionApproval: 0
