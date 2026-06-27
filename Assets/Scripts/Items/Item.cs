@@ -3,10 +3,9 @@ using Unity.Netcode.Components;
 using UnityEngine;
 
 /// <summary>
-/// Item pickup behavior using NetworkObject parenting.
+/// Item pickup behavior.
 /// 
-/// Held items are parented to the holder's NetworkObject root and snap to the
-/// holder's child holdPoint while parented.
+/// While held, each client locally parents the item to its visible copy of the holder's holdPoint.
 /// </summary>
 [RequireComponent(typeof(NetworkObject))]
 [RequireComponent(typeof(Rigidbody))]
@@ -27,16 +26,19 @@ public class Item : NetworkBehaviour
     private Rigidbody rb;
     private Collider col;
     private NetworkTransform networkTransform;
-    private PlayerPickup parentHolder;
+    private PlayerPickup cachedHolder;
     private RigidbodyInterpolation defaultInterpolation;
+    private bool defaultAutoObjectParentSync;
 
-    private NetworkVariable<bool> isHeld = new NetworkVariable<bool>(
-        false,
+    private const ulong NoHolder = ulong.MaxValue;
+
+    private NetworkVariable<ulong> holderClientId = new NetworkVariable<ulong>(
+        NoHolder,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
 
-    public bool IsHeld => isHeld.Value;
+    public bool IsHeld => holderClientId.Value != NoHolder;
 
     private void Awake()
     {
@@ -48,47 +50,51 @@ public class Item : NetworkBehaviour
         {
             defaultInterpolation = rb.interpolation;
         }
+
+        if (NetworkObject != null)
+        {
+            defaultAutoObjectParentSync = NetworkObject.AutoObjectParentSync;
+        }
     }
 
     public override void OnNetworkSpawn()
     {
-        isHeld.OnValueChanged += OnHeldChanged;
-        ApplyHeldState(isHeld.Value);
+        holderClientId.OnValueChanged += OnHolderChanged;
+        ApplyHeldState(IsHeld);
+
+        if (IsHeld)
+        {
+            TryAttachToHolder();
+        }
     }
 
     public override void OnNetworkDespawn()
     {
-        isHeld.OnValueChanged -= OnHeldChanged;
-    }
-
-    public override void OnNetworkObjectParentChanged(NetworkObject parentNetworkObject)
-    {
-        parentHolder = null;
-
-        if (parentNetworkObject == null)
-        {
-            return;
-        }
-
-        parentHolder = parentNetworkObject.GetComponentInChildren<PlayerPickup>();
-
-        if (parentHolder != null)
-        {
-            SetWorldHoldPose(parentHolder);
-        }
+        holderClientId.OnValueChanged -= OnHolderChanged;
+        DetachFromHolder(worldPositionStays: true);
     }
 
     private void LateUpdate()
     {
         if (!IsHeld) return;
-        if (parentHolder == null) return;
+        if (transform.parent != null) return;
 
-        SetWorldHoldPose(parentHolder);
+        TryAttachToHolder();
     }
 
-    private void OnHeldChanged(bool oldValue, bool newValue)
+    private void OnHolderChanged(ulong oldValue, ulong newValue)
     {
-        ApplyHeldState(newValue);
+        cachedHolder = null;
+        ApplyHeldState(newValue != NoHolder);
+
+        if (newValue == NoHolder)
+        {
+            DetachFromHolder(worldPositionStays: true);
+        }
+        else
+        {
+            TryAttachToHolder();
+        }
     }
 
     public bool ServerStartHolding(PlayerPickup holder)
@@ -99,19 +105,10 @@ public class Item : NetworkBehaviour
         if (!holder.NetworkObject.IsSpawned) return false;
         if (IsHeld) return false;
 
-        isHeld.Value = true;
+        cachedHolder = holder;
+        holderClientId.Value = holder.OwnerClientId;
         ApplyHeldState(true);
-
-        if (!NetworkObject.TrySetParent(holder.NetworkObject, worldPositionStays: false))
-        {
-            isHeld.Value = false;
-            ApplyHeldState(false);
-            Debug.LogWarning($"[Server] Failed to parent {itemName} to {holder.gameObject.name}.");
-            return false;
-        }
-
-        parentHolder = holder;
-        SetWorldHoldPose(holder);
+        AttachToHolder(holder);
 
         return true;
     }
@@ -120,8 +117,9 @@ public class Item : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        parentHolder = null;
-        NetworkObject.TryRemoveParent(worldPositionStays: true);
+        holderClientId.Value = NoHolder;
+        cachedHolder = null;
+        DetachFromHolder(worldPositionStays: true);
 
         SetWorldPose(dropPosition, dropRotation);
 
@@ -131,7 +129,6 @@ public class Item : NetworkBehaviour
             rb.angularVelocity = Vector3.zero;
         }
 
-        isHeld.Value = false;
         ApplyHeldState(false);
     }
 
@@ -160,12 +157,78 @@ public class Item : NetworkBehaviour
         }
     }
 
-    private void SetWorldHoldPose(PlayerPickup holder)
+    private bool TryAttachToHolder()
+    {
+        if (!TryGetHolder(out PlayerPickup holder))
+        {
+            return false;
+        }
+
+        AttachToHolder(holder);
+        return true;
+    }
+
+    private void AttachToHolder(PlayerPickup holder)
     {
         if (holder == null) return;
         if (holder.holdPoint == null) return;
 
-        transform.SetPositionAndRotation(holder.holdPoint.position, holder.holdPoint.rotation);
+        if (NetworkObject != null)
+        {
+            NetworkObject.AutoObjectParentSync = false;
+        }
+
+        transform.SetParent(holder.holdPoint, worldPositionStays: false);
+        transform.localPosition = Vector3.zero;
+        transform.localRotation = Quaternion.identity;
+    }
+
+    private void DetachFromHolder(bool worldPositionStays)
+    {
+        transform.SetParent(null, worldPositionStays);
+
+        if (NetworkObject != null)
+        {
+            NetworkObject.AutoObjectParentSync = defaultAutoObjectParentSync;
+        }
+    }
+
+    private bool TryGetHolder(out PlayerPickup holder)
+    {
+        holder = cachedHolder;
+
+        if (holder != null &&
+            holder.NetworkObject != null &&
+            holder.NetworkObject.IsSpawned &&
+            holder.OwnerClientId == holderClientId.Value)
+        {
+            return true;
+        }
+
+        holder = null;
+
+        if (holderClientId.Value == NoHolder)
+        {
+            return false;
+        }
+
+        PlayerPickup[] pickups = FindObjectsByType<PlayerPickup>(FindObjectsSortMode.None);
+
+        for (int i = 0; i < pickups.Length; i++)
+        {
+            PlayerPickup candidate = pickups[i];
+
+            if (candidate.NetworkObject != null &&
+                candidate.NetworkObject.IsSpawned &&
+                candidate.OwnerClientId == holderClientId.Value)
+            {
+                cachedHolder = candidate;
+                holder = candidate;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void SetWorldPose(Vector3 position, Quaternion rotation)

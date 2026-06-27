@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Player pickup controller.
-/// Held items are parented to this player's NetworkObject and visually snapped to holdPoint.
+/// Held items locally attach to this player's holdPoint while held.
 /// </summary>
 public class PlayerPickup : NetworkBehaviour
 {
