@@ -263,12 +263,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FoodAssemblyBase
   ShowTopMostFoldoutHeaderGroup: 1
-  foodToWrap: {fileID: 11400000, guid: 3955b56fe7d0f73d2b87dfcb9c84721a, type: 2}
-  wrappedFoodSpawnPoint: {fileID: 667394552476562139}
-  despawnIngredientsWhenWrapped: 1
-  logDebugMessages: 1
+  foodDefinition: {fileID: 11400000, guid: 3955b56fe7d0f73d2b87dfcb9c84721a, type: 2}
   snapRoot: {fileID: 667394552476562139}
-  firstIngredientLocalOffset: {x: 0, y: 0.08, z: 0}
+  firstIngredientLocalOffset: {x: 0, y: 0.02, z: 0}
   stackDirection: {x: 0, y: 1, z: 0}
-  ingredientSpacing: 0.08
+  ingredientSpacing: 0.02
   snappedLocalEulerAngles: {x: 0, y: 0, z: 0}

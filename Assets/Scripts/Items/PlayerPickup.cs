@@ -148,6 +148,11 @@ public class PlayerPickup : NetworkBehaviour
         if (item == null) return;
         if (heldItem != null) return;
 
+        if (!PrepareItemForPickUp(item))
+        {
+            return;
+        }
+
         bool success = item.ServerStartHolding(this);
 
         if (!success)
@@ -160,6 +165,20 @@ public class PlayerPickup : NetworkBehaviour
         heldItemNetId.Value = item.NetworkObject.NetworkObjectId;
 
         Debug.Log($"[Server] {gameObject.name} picked up {item.itemName}");
+    }
+
+    private bool PrepareItemForPickUp(Item item)
+    {
+        if (item == null) return false;
+
+        FoodAssemblyBase foodAssembly = item.GetComponent<FoodAssemblyBase>();
+
+        if (foodAssembly != null && foodAssembly.IsOnServingTray)
+        {
+            return foodAssembly.ServerTryRemoveFromServingTray();
+        }
+
+        return true;
     }
 
     private void PerformDrop()
@@ -320,6 +339,29 @@ public class PlayerPickup : NetworkBehaviour
         }
 
         heldItem.ServerStopHolding(releasePosition, releaseRotation);
+
+        heldItem = null;
+        heldItemNetId.Value = NoItem;
+
+        return true;
+    }
+
+    public bool ServerTryReleaseHeldItemPreserveWorldPose(Item item)
+    {
+        if (!IsServer) return false;
+        if (item == null) return false;
+
+        if (heldItem == null)
+        {
+            TryResolveHeldItem();
+        }
+
+        if (heldItem != item)
+        {
+            return false;
+        }
+
+        heldItem.ServerStopHoldingPreserveWorldPose();
 
         heldItem = null;
         heldItemNetId.Value = NoItem;

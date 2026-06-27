@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -10,9 +11,7 @@ using UnityEngine;
 public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 {
     [Header("Food")]
-    [SerializeField] private FoodItemDefinition foodToWrap;
-    [SerializeField] private Transform wrappedFoodSpawnPoint;
-    [SerializeField] private bool despawnIngredientsWhenWrapped = true;
+    [SerializeField] private FoodItemDefinition foodDefinition;
 
     [Header("Snapping")]
     [SerializeField] private Transform snapRoot;
@@ -22,11 +21,14 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
     [SerializeField] private Vector3 snappedLocalEulerAngles;
 
     private readonly List<FoodIngredient> snappedIngredients = new();
-    private readonly List<FoodIngredient> wrapIngredients = new();
+    private readonly List<FoodIngredient> assembledIngredients = new();
     private FoodIngredient baseIngredient;
+    private ServingTray currentTray;
 
-    public FoodItemDefinition FoodToWrap => foodToWrap;
+    public FoodItemDefinition FoodDefinition => foodDefinition;
     public IReadOnlyList<FoodIngredient> SnappedIngredients => snappedIngredients;
+    public ServingTray CurrentServingTray => currentTray;
+    public bool IsOnServingTray => currentTray != null;
 
     private void Awake()
     {
@@ -41,11 +43,11 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             return;
         }
 
-        RequestPlaceHeldIngredientServerRpc();
+        RequestUseHeldItemServerRpc();
     }
 
     [ServerRpc(RequireOwnership = false)]
-    private void RequestPlaceHeldIngredientServerRpc(ServerRpcParams rpcParams = default)
+    private void RequestUseHeldItemServerRpc(ServerRpcParams rpcParams = default)
     {
         if (!TryGetSenderPickup(rpcParams.Receive.SenderClientId, out PlayerPickup playerPickup))
         {
@@ -53,7 +55,37 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             return;
         }
 
-        ServerTryPlaceHeldIngredient(playerPickup);
+        ServerTryUseHeldItem(playerPickup);
+    }
+
+    public bool ServerTryUseHeldItem(PlayerPickup playerPickup)
+    {
+        if (!IsServerActive()) return false;
+        if (playerPickup == null)
+        {
+            return false;
+        }
+
+        if (!playerPickup.ServerTryGetHeldItem(out Item heldItem))
+        {
+            return false;
+        }
+
+        ServingTray servingTray = GetServingTray(heldItem);
+
+        if (servingTray != null)
+        {
+            return ServerTryPlaceOnTray(servingTray);
+        }
+
+        CondimentTool condimentTool = GetCondimentTool(heldItem);
+
+        if (condimentTool != null)
+        {
+            return ServerTryApplyCondiment(condimentTool);
+        }
+
+        return ServerTryPlaceHeldIngredient(playerPickup, heldItem);
     }
 
     public bool ServerTryPlaceHeldIngredient(PlayerPickup playerPickup)
@@ -65,6 +97,16 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         }
 
         if (!playerPickup.ServerTryGetHeldItem(out Item heldItem))
+        {
+            return false;
+        }
+
+        return ServerTryPlaceHeldIngredient(playerPickup, heldItem);
+    }
+
+    private bool ServerTryPlaceHeldIngredient(PlayerPickup playerPickup, Item heldItem)
+    {
+        if (IsOnServingTray)
         {
             return false;
         }
@@ -82,6 +124,25 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         }
 
         return ServerTrySnapIngredient(ingredient);
+    }
+
+    public bool ServerTryPlaceOnTray(ServingTray servingTray)
+    {
+        if (!IsServerActive()) return false;
+        if (servingTray == null) return false;
+        if (IsOnServingTray) return false;
+        if (!HasAnyIngredientData()) return false;
+
+        return servingTray.ServerTryLoadFood(this);
+    }
+
+    public bool ServerTryApplyCondiment(CondimentTool condimentTool)
+    {
+        if (!IsServerActive()) return false;
+        if (condimentTool == null) return false;
+        if (IsOnServingTray) return false;
+
+        return condimentTool.ServerTryApplyTo(this);
     }
 
     public bool ServerTrySnapIngredient(FoodIngredient ingredient)
@@ -113,43 +174,30 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         return true;
     }
 
-    public WrappedFoodItem ServerWrapFood()
+    public void RefreshSnappedIngredientLayout()
     {
-        if (!IsServerActive()) return null;
-        if (foodToWrap == null)
+        TrackSnappedIngredientsFromChildren();
+        snappedIngredients.RemoveAll(snappedIngredient => snappedIngredient == null);
+
+        Quaternion localRotation = Quaternion.Euler(snappedLocalEulerAngles);
+
+        for (int i = 0; i < snappedIngredients.Count; i++)
         {
-            Debug.LogWarning("[FoodAssemblyBase] Food To Wrap is missing.", this);
-            return null;
+            ApplySnappedPose(snappedIngredients[i], GetLocalSnapPosition(i), localRotation);
         }
+    }
 
-        if (foodToWrap.WrappedFoodPrefab == null)
-        {
-            Debug.LogWarning($"[FoodAssemblyBase] {foodToWrap.FoodName} has no wrapped food prefab.", this);
-            return null;
-        }
+    public void SetCurrentServingTray(ServingTray servingTray)
+    {
+        currentTray = servingTray;
+    }
 
-        Vector3 spawnPosition = wrappedFoodSpawnPoint != null ? wrappedFoodSpawnPoint.position : transform.position;
-        Quaternion spawnRotation = wrappedFoodSpawnPoint != null ? wrappedFoodSpawnPoint.rotation : transform.rotation;
+    public bool ServerTryRemoveFromServingTray()
+    {
+        if (!IsServerActive()) return false;
+        if (currentTray == null) return true;
 
-        GameObject wrappedObject = Instantiate(foodToWrap.WrappedFoodPrefab, spawnPosition, spawnRotation);
-        WrappedFoodItem wrappedFood = wrappedObject.GetComponent<WrappedFoodItem>();
-
-        if (wrappedFood == null)
-        {
-            Debug.LogWarning($"[FoodAssemblyBase] {foodToWrap.WrappedFoodPrefab.name} is missing WrappedFoodItem.", this);
-            Destroy(wrappedObject);
-            return null;
-        }
-
-        NetworkObject wrappedNetworkObject = wrappedObject.GetComponent<NetworkObject>();
-
-        if (wrappedNetworkObject != null)
-        {
-            wrappedNetworkObject.Spawn();
-        }
-
-        wrappedFood.ServerInitialize(foodToWrap, GetIngredientsForWrap(), despawnIngredientsWhenWrapped);
-        return wrappedFood;
+        return currentTray.ServerTryUnloadFood(this);
     }
 
     private bool CanSnapIngredient(FoodIngredient ingredient, bool allowHeld, out string reason)
@@ -159,6 +207,12 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         if (ingredient == null)
         {
             reason = "held item has no FoodIngredient component.";
+            return false;
+        }
+
+        if (IsOnServingTray)
+        {
+            reason = "food is already on a serving tray.";
             return false;
         }
 
@@ -186,9 +240,9 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             return false;
         }
 
-        if (foodToWrap != null && !foodToWrap.AllowsIngredient(ingredient.Definition))
+        if (foodDefinition != null && !foodDefinition.AllowsIngredient(ingredient.Definition))
         {
-            reason = $"{ingredient.Definition.IngredientName} is not allowed by {foodToWrap.FoodName}.";
+            reason = $"{ingredient.Definition.IngredientName} is not allowed by {foodDefinition.FoodName}.";
             return false;
         }
 
@@ -203,13 +257,13 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         return true;
     }
 
-    private IReadOnlyList<FoodIngredient> GetIngredientsForWrap()
+    public IReadOnlyList<FoodIngredient> GetAssembledIngredients()
     {
-        wrapIngredients.Clear();
+        assembledIngredients.Clear();
 
         if (baseIngredient != null && baseIngredient.HasDefinition)
         {
-            wrapIngredients.Add(baseIngredient);
+            assembledIngredients.Add(baseIngredient);
         }
 
         snappedIngredients.RemoveAll(ingredient => ingredient == null);
@@ -220,11 +274,33 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 
             if (ingredient != null && ingredient.HasDefinition)
             {
-                wrapIngredients.Add(ingredient);
+                assembledIngredients.Add(ingredient);
             }
         }
 
-        return wrapIngredients;
+        return assembledIngredients;
+    }
+
+    public bool HasAnyIngredientData()
+    {
+        if (baseIngredient != null && baseIngredient.HasDefinition)
+        {
+            return true;
+        }
+
+        snappedIngredients.RemoveAll(ingredient => ingredient == null);
+
+        for (int i = 0; i < snappedIngredients.Count; i++)
+        {
+            FoodIngredient ingredient = snappedIngredients[i];
+
+            if (ingredient != null && ingredient.HasDefinition)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Vector3 GetLocalSnapPosition(int snappedIngredientIndex)
@@ -284,11 +360,45 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             ingredientNetworkObjectId,
             out NetworkObject ingredientNetworkObject))
         {
+            StartCoroutine(ApplySnappedPoseWhenSpawned(ingredientNetworkObjectId, localPosition, localRotation));
             return;
         }
 
         FoodIngredient ingredient = ingredientNetworkObject.GetComponent<FoodIngredient>();
+        TrackSnappedIngredient(ingredient);
         ApplySnappedPose(ingredient, localPosition, localRotation);
+    }
+
+    private IEnumerator ApplySnappedPoseWhenSpawned(
+        ulong ingredientNetworkObjectId,
+        Vector3 localPosition,
+        Quaternion localRotation)
+    {
+        const float timeoutSeconds = 2f;
+        float elapsedSeconds = 0f;
+
+        while (elapsedSeconds < timeoutSeconds)
+        {
+            yield return null;
+            elapsedSeconds += Time.deltaTime;
+
+            if (NetworkManager.Singleton == null)
+            {
+                yield break;
+            }
+
+            if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(
+                ingredientNetworkObjectId,
+                out NetworkObject ingredientNetworkObject))
+            {
+                continue;
+            }
+
+            FoodIngredient ingredient = ingredientNetworkObject.GetComponent<FoodIngredient>();
+            TrackSnappedIngredient(ingredient);
+            ApplySnappedPose(ingredient, localPosition, localRotation);
+            yield break;
+        }
     }
 
     private bool IsServerActive()
@@ -349,6 +459,68 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         }
 
         return item.GetComponentInParent<FoodIngredient>();
+    }
+
+    private ServingTray GetServingTray(Item item)
+    {
+        if (item == null) return null;
+
+        ServingTray servingTray = item.GetComponent<ServingTray>();
+
+        if (servingTray != null)
+        {
+            return servingTray;
+        }
+
+        servingTray = item.GetComponentInChildren<ServingTray>();
+
+        if (servingTray != null)
+        {
+            return servingTray;
+        }
+
+        return item.GetComponentInParent<ServingTray>();
+    }
+
+    private CondimentTool GetCondimentTool(Item item)
+    {
+        if (item == null) return null;
+
+        CondimentTool condimentTool = item.GetComponent<CondimentTool>();
+
+        if (condimentTool != null)
+        {
+            return condimentTool;
+        }
+
+        condimentTool = item.GetComponentInChildren<CondimentTool>();
+
+        if (condimentTool != null)
+        {
+            return condimentTool;
+        }
+
+        return item.GetComponentInParent<CondimentTool>();
+    }
+
+    private void TrackSnappedIngredient(FoodIngredient ingredient)
+    {
+        if (ingredient == null) return;
+        if (ingredient == baseIngredient) return;
+        if (snappedIngredients.Contains(ingredient)) return;
+
+        snappedIngredients.Add(ingredient);
+    }
+
+    private void TrackSnappedIngredientsFromChildren()
+    {
+        Transform parent = snapRoot != null ? snapRoot : transform;
+        FoodIngredient[] childIngredients = parent.GetComponentsInChildren<FoodIngredient>(includeInactive: true);
+
+        for (int i = 0; i < childIngredients.Length; i++)
+        {
+            TrackSnappedIngredient(childIngredients[i]);
+        }
     }
 
     private void Log(string message)
