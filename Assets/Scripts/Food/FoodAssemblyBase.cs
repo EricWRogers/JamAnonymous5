@@ -13,7 +13,6 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
     [SerializeField] private FoodItemDefinition foodToWrap;
     [SerializeField] private Transform wrappedFoodSpawnPoint;
     [SerializeField] private bool despawnIngredientsWhenWrapped = true;
-    [SerializeField] private bool logDebugMessages = true;
 
     [Header("Snapping")]
     [SerializeField] private Transform snapRoot;
@@ -54,8 +53,7 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             return;
         }
 
-        bool placed = ServerTryPlaceHeldIngredient(playerPickup);
-        Log(placed ? $"Placed held ingredient from client {rpcParams.Receive.SenderClientId}." : $"Failed to place held ingredient from client {rpcParams.Receive.SenderClientId}.");
+        ServerTryPlaceHeldIngredient(playerPickup);
     }
 
     public bool ServerTryPlaceHeldIngredient(PlayerPickup playerPickup)
@@ -63,27 +61,23 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         if (!IsServerActive()) return false;
         if (playerPickup == null)
         {
-            Log("Cannot place ingredient because PlayerPickup is missing.");
             return false;
         }
 
         if (!playerPickup.ServerTryGetHeldItem(out Item heldItem))
         {
-            Log("Cannot place ingredient because the player is not holding an item on the server.");
             return false;
         }
 
         FoodIngredient ingredient = GetFoodIngredient(heldItem);
 
-        if (!CanSnapIngredient(ingredient, allowHeld: true, out string reason))
+        if (!CanSnapIngredient(ingredient, allowHeld: true, out _))
         {
-            Log($"Cannot place {heldItem.itemName}: {reason}");
             return false;
         }
 
         if (!playerPickup.ServerTryReleaseHeldItem(heldItem, transform.position, transform.rotation))
         {
-            Log($"Cannot place {heldItem.itemName} because it could not be released from the player.");
             return false;
         }
 
@@ -93,9 +87,8 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
     public bool ServerTrySnapIngredient(FoodIngredient ingredient)
     {
         if (!IsServerActive()) return false;
-        if (!CanSnapIngredient(ingredient, allowHeld: false, out string reason))
+        if (!CanSnapIngredient(ingredient, allowHeld: false, out _))
         {
-            Log($"Cannot snap ingredient: {reason}");
             return false;
         }
 
@@ -245,9 +238,18 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         if (ingredient == null) return;
 
         Transform parent = snapRoot != null ? snapRoot : transform;
-        ingredient.transform.SetParent(parent, worldPositionStays: false);
-        ingredient.transform.localPosition = localPosition;
-        ingredient.transform.localRotation = localRotation;
+        Item item = ingredient.GetComponent<Item>();
+
+        if (item != null)
+        {
+            item.LockLocalParent(parent, localPosition, localRotation);
+        }
+        else
+        {
+            ingredient.transform.SetParent(parent, worldPositionStays: false);
+            ingredient.transform.localPosition = localPosition;
+            ingredient.transform.localRotation = localRotation;
+        }
 
         Rigidbody rb = ingredient.GetComponent<Rigidbody>();
 
@@ -351,8 +353,6 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 
     private void Log(string message)
     {
-        if (!logDebugMessages) return;
-
-        Debug.Log($"[FoodAssemblyBase] {message}", this);
+        Debug.LogWarning($"[FoodAssemblyBase] {message}", this);
     }
 }

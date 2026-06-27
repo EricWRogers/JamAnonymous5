@@ -29,6 +29,7 @@ public class Item : NetworkBehaviour
     private PlayerPickup cachedHolder;
     private RigidbodyInterpolation defaultInterpolation;
     private bool defaultAutoObjectParentSync;
+    private bool localParentLocked;
 
     private const ulong NoHolder = ulong.MaxValue;
 
@@ -71,11 +72,13 @@ public class Item : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         holderClientId.OnValueChanged -= OnHolderChanged;
+        localParentLocked = false;
         DetachFromHolder(worldPositionStays: true);
     }
 
     private void LateUpdate()
     {
+        if (localParentLocked) return;
         if (!IsHeld) return;
         if (transform.parent != null) return;
 
@@ -85,14 +88,22 @@ public class Item : NetworkBehaviour
     private void OnHolderChanged(ulong oldValue, ulong newValue)
     {
         cachedHolder = null;
-        ApplyHeldState(newValue != NoHolder);
 
         if (newValue == NoHolder)
         {
+            if (localParentLocked)
+            {
+                ApplyHeldState(true);
+                return;
+            }
+
+            ApplyHeldState(false);
             DetachFromHolder(worldPositionStays: true);
         }
         else
         {
+            UnlockLocalParent();
+            ApplyHeldState(true);
             TryAttachToHolder();
         }
     }
@@ -105,6 +116,7 @@ public class Item : NetworkBehaviour
         if (!holder.NetworkObject.IsSpawned) return false;
         if (IsHeld) return false;
 
+        UnlockLocalParent();
         cachedHolder = holder;
         holderClientId.Value = holder.OwnerClientId;
         ApplyHeldState(true);
@@ -130,6 +142,36 @@ public class Item : NetworkBehaviour
         }
 
         ApplyHeldState(false);
+    }
+
+    public void LockLocalParent(Transform parent, Vector3 localPosition, Quaternion localRotation)
+    {
+        if (parent == null) return;
+
+        localParentLocked = true;
+
+        if (NetworkObject != null)
+        {
+            NetworkObject.AutoObjectParentSync = false;
+        }
+
+        transform.SetParent(parent, worldPositionStays: false);
+        transform.localPosition = localPosition;
+        transform.localRotation = localRotation;
+
+        ApplyHeldState(true);
+    }
+
+    public void UnlockLocalParent()
+    {
+        if (!localParentLocked) return;
+
+        localParentLocked = false;
+
+        if (NetworkObject != null)
+        {
+            NetworkObject.AutoObjectParentSync = defaultAutoObjectParentSync;
+        }
     }
 
     private void ApplyHeldState(bool held)
