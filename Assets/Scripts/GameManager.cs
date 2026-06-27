@@ -11,7 +11,7 @@ public class GameManager : NetworkBehaviour
     public string JoinCode;
 
     public NetworkVariable<float> shiftTimer = new();
-
+    public NetworkVariable<bool> shiftStarted = new();
     public float maxShiftTime = 600f; //10 minutes. The huds know what to do with this. Should be 8pm is the end of shift.
 
     private readonly Color32[] palette = new Color32[]
@@ -47,11 +47,17 @@ public class GameManager : NetworkBehaviour
 
     void Update()
     {
-        if(!IsServer) return;
+        if (!IsServer) return;
 
-        if(SceneManager.GetActiveScene().name == "Game")
+        if (shiftStarted.Value && SceneManager.GetActiveScene().name == "Game")
         {
             shiftTimer.Value = Mathf.Min(shiftTimer.Value + Time.deltaTime, maxShiftTime);
+
+            if (shiftTimer.Value >= maxShiftTime)
+            {
+                shiftStarted.Value = false;
+                shiftTimer.Value = 0f;
+            }
         }
     }
 
@@ -94,6 +100,13 @@ public class GameManager : NetworkBehaviour
         {
             playerColors[ids[i]] = colors[i];
         }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void StartShiftServerRpc()
+    {
+        if (shiftStarted.Value) return; 
+        shiftStarted.Value = true;
     }
             
 }
