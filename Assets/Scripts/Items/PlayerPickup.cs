@@ -289,6 +289,44 @@ public class PlayerPickup : NetworkBehaviour
         return IsHoldingItemLocally;
     }
 
+    public bool ServerTryGetHeldItem(out Item item)
+    {
+        item = null;
+
+        if (!IsServer) return false;
+
+        if (heldItem == null)
+        {
+            TryResolveHeldItem();
+        }
+
+        item = heldItem;
+        return item != null;
+    }
+
+    public bool ServerTryReleaseHeldItem(Item item, Vector3 releasePosition, Quaternion releaseRotation)
+    {
+        if (!IsServer) return false;
+        if (item == null) return false;
+
+        if (heldItem == null)
+        {
+            TryResolveHeldItem();
+        }
+
+        if (heldItem != item)
+        {
+            return false;
+        }
+
+        heldItem.ServerStopHolding(releasePosition, releaseRotation);
+
+        heldItem = null;
+        heldItemNetId.Value = NoItem;
+
+        return true;
+    }
+
     private void OnEnable()
     {
         if (inputs != null)

@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Item
   ShowTopMostFoldoutHeaderGroup: 1
-  itemName: Item
+  itemName: Bun
   itemType: 2
 --- !u!114 &-3038926477926658486
 MonoBehaviour:
