@@ -14,17 +14,12 @@ public class FoodItemDefinition : ScriptableObject
     [SerializeField] private string foodName = "Food";
     [SerializeField] private FoodKind foodKind = FoodKind.Hotdog;
 
-    [Header("Wrapping")]
-    [Tooltip("Prefab spawned when this food is wrapped. Add WrappedFoodItem and NetworkObject to it for multiplayer use.")]
-    [SerializeField] private GameObject wrappedFoodPrefab;
-
     [Header("Future Order Checks")]
     [Tooltip("Leave empty for now. Customer order matching can compare against these definitions later.")]
     [SerializeField] private List<FoodIngredientDefinition> allowedIngredients = new();
 
     public string FoodName => foodName;
     public FoodKind FoodKind => foodKind;
-    public GameObject WrappedFoodPrefab => wrappedFoodPrefab;
     public IReadOnlyList<FoodIngredientDefinition> AllowedIngredients => allowedIngredients;
 
     public bool AllowsIngredient(FoodIngredientDefinition ingredient)

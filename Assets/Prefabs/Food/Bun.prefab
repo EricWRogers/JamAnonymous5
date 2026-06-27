@@ -16,6 +16,8 @@ GameObject:
   - component: {fileID: 4152935267379931758}
   - component: {fileID: 5299953362599768610}
   - component: {fileID: -3038926477926658486}
+  - component: {fileID: 2137725474621107200}
+  - component: {fileID: 5824611187878423014}
   m_Layer: 0
   m_Name: Bun
   m_TagString: Untagged
@@ -231,3 +233,39 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &2137725474621107200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3998638989550864381}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7e6c84143a4ee7a88e6ef83abe91ffc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodIngredient
+  definition: {fileID: 0}
+  useDefinitionDefaultStates: 1
+  cookState: 0
+  prepState: 0
+  cookProgress: 0
+--- !u!114 &5824611187878423014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3998638989550864381}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b1780669e943355b95a64d77ee6820b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodAssemblyBase
+  ShowTopMostFoldoutHeaderGroup: 1
+  foodDefinition: {fileID: 11400000, guid: 0c24c8a8f21ec6974a08ee91805d52a7, type: 2}
+  snapRoot: {fileID: 1028717257751331777}
+  firstIngredientLocalOffset: {x: 0, y: 0.08, z: 0}
+  stackDirection: {x: 0, y: 1, z: 0}
+  ingredientSpacing: 0.08
+  snappedLocalEulerAngles: {x: 0, y: 0, z: 0}

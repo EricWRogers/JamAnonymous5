@@ -14,6 +14,8 @@ public class PlayerInteraction : NetworkBehaviour
     [SerializeField] private Camera playerCamera;
 
     private InputSystem_Actions inputs;
+    private IHoldInteractable currentHoldInteractable;
+    private float holdInteractTimer;
 
     private void Awake()
     {
@@ -28,16 +30,68 @@ public class PlayerInteraction : NetworkBehaviour
     private void Update()
     {
         if (!IsOwner) return;
-        if (!inputs.Player.Interact.WasPressedThisFrame()) return;
 
-        if (TryGetInteractable(out IInteractable interactable))
+        if (inputs.Player.Interact.WasPressedThisFrame())
         {
-            interactable.Interact(this);
+            if (TryGetInteractable(out IInteractable interactable))
+            {
+                interactable.Interact(this);
+                TryStartHoldInteract(interactable);
+            }
+            else
+            {
+                Log("Interact pressed, but no interactable was found.");
+            }
         }
-        else
+
+        UpdateHoldInteract();
+    }
+
+    private void TryStartHoldInteract(IInteractable interactable)
+    {
+        currentHoldInteractable = null;
+        holdInteractTimer = 0f;
+
+        if (interactable is not IHoldInteractable holdInteractable) return;
+        if (!holdInteractable.CanHoldInteract(this)) return;
+
+        currentHoldInteractable = holdInteractable;
+    }
+
+    private void UpdateHoldInteract()
+    {
+        if (currentHoldInteractable == null) return;
+
+        if (!inputs.Player.Interact.IsPressed())
         {
-            Log("Interact pressed, but no interactable was found.");
+            CancelHoldInteract();
+            return;
         }
+
+        if (!TryGetInteractable(out IInteractable interactable) ||
+            !ReferenceEquals(interactable, currentHoldInteractable) ||
+            !currentHoldInteractable.CanHoldInteract(this))
+        {
+            CancelHoldInteract();
+            return;
+        }
+
+        holdInteractTimer += Time.deltaTime;
+
+        if (holdInteractTimer < currentHoldInteractable.HoldInteractDuration)
+        {
+            return;
+        }
+
+        IHoldInteractable completedInteractable = currentHoldInteractable;
+        CancelHoldInteract();
+        completedInteractable.HoldInteractComplete(this);
+    }
+
+    private void CancelHoldInteract()
+    {
+        currentHoldInteractable = null;
+        holdInteractTimer = 0f;
     }
 
     private bool TryGetInteractable(out IInteractable interactable)

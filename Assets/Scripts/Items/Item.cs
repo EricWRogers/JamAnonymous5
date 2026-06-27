@@ -144,10 +144,47 @@ public class Item : NetworkBehaviour
         ApplyHeldState(false);
     }
 
+    public void ServerStopHoldingPreserveWorldPose()
+    {
+        if (!IsServer) return;
+
+        Vector3 position = transform.position;
+        Quaternion rotation = transform.rotation;
+
+        holderClientId.Value = NoHolder;
+        cachedHolder = null;
+        DetachFromHolder(worldPositionStays: true);
+
+        SetWorldPose(position, rotation);
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        ApplyHeldState(false);
+    }
+
     public void LockLocalParent(Transform parent, Vector3 localPosition, Quaternion localRotation)
+    {
+        LockLocalParent(parent, localPosition, localRotation, preserveWorldScale: false);
+    }
+
+    public void LockLocalParentPreserveWorldScale(Transform parent, Vector3 localPosition, Quaternion localRotation)
+    {
+        LockLocalParent(parent, localPosition, localRotation, preserveWorldScale: true);
+    }
+
+    private void LockLocalParent(
+        Transform parent,
+        Vector3 localPosition,
+        Quaternion localRotation,
+        bool preserveWorldScale)
     {
         if (parent == null) return;
 
+        Vector3 worldScale = transform.lossyScale;
         localParentLocked = true;
 
         if (NetworkObject != null)
@@ -158,6 +195,11 @@ public class Item : NetworkBehaviour
         transform.SetParent(parent, worldPositionStays: false);
         transform.localPosition = localPosition;
         transform.localRotation = localRotation;
+
+        if (preserveWorldScale)
+        {
+            SetLocalScaleForWorldScale(worldScale, parent);
+        }
 
         ApplyHeldState(true);
     }
@@ -215,6 +257,8 @@ public class Item : NetworkBehaviour
         if (holder == null) return;
         if (holder.holdPoint == null) return;
 
+        Vector3 worldScale = transform.lossyScale;
+
         if (NetworkObject != null)
         {
             NetworkObject.AutoObjectParentSync = false;
@@ -223,6 +267,7 @@ public class Item : NetworkBehaviour
         transform.SetParent(holder.holdPoint, worldPositionStays: false);
         transform.localPosition = Vector3.zero;
         transform.localRotation = Quaternion.identity;
+        SetLocalScaleForWorldScale(worldScale, holder.holdPoint);
     }
 
     private void DetachFromHolder(bool worldPositionStays)
@@ -282,5 +327,27 @@ public class Item : NetworkBehaviour
             rb.position = position;
             rb.rotation = rotation;
         }
+    }
+
+    private void SetLocalScaleForWorldScale(Vector3 worldScale, Transform parent)
+    {
+        if (parent == null)
+        {
+            transform.localScale = worldScale;
+            return;
+        }
+
+        Vector3 parentScale = parent.lossyScale;
+
+        transform.localScale = new Vector3(
+            DivideScale(worldScale.x, parentScale.x),
+            DivideScale(worldScale.y, parentScale.y),
+            DivideScale(worldScale.z, parentScale.z)
+        );
+    }
+
+    private float DivideScale(float value, float divisor)
+    {
+        return Mathf.Abs(divisor) > 0.0001f ? value / divisor : value;
     }
 }
