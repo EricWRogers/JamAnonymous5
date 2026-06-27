@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: daee978bc7ca31d68b70056a6095715e, type: 3}
+  m_Name: Dong
+  m_EditorClassIdentifier: Assembly-CSharp::FoodIngredientDefinition
+  ingredientName: Dong
+  quality: 0
+  goodIngredientCost: 1
+  canBeCooked: 1
+  canBePrepared: 0
+  defaultCookState: 1
+  defaultPrepState: 0
+  ingredientPrefab: {fileID: 338366262360869220, guid: d39802fe2a5eeae66bd12d69b87c5f23, type: 3}
+  icon: {fileID: 0}

@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 6633265272513208818}
   - component: {fileID: 8467475677327957154}
   - component: {fileID: -7347246528866642616}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Ketchup Bottle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -143,7 +143,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!114 &6633265272513208818
 MonoBehaviour:
   m_ObjectHideFlags: 0

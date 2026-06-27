@@ -230,31 +230,52 @@ public class PlayerPickup : NetworkBehaviour
             new Vector3(Screen.width / 2f, Screen.height / 2f, 0f)
         );
 
-        if (!Physics.Raycast(ray, out RaycastHit hit, pickupRange, pickableLayer))
+        RaycastHit[] hits = Physics.RaycastAll(
+            ray,
+            pickupRange,
+            pickableLayer,
+            QueryTriggerInteraction.Ignore
+        );
+
+        if (hits.Length == 0)
         {
             return false;
         }
 
-        NetworkObject netObj = hit.collider.GetComponentInParent<NetworkObject>();
+        float closestDistance = float.MaxValue;
+        NetworkObject closestNetObj = null;
 
-        if (netObj == null)
+        for (int i = 0; i < hits.Length; i++)
+        {
+            if (hits[i].distance >= closestDistance)
+            {
+                continue;
+            }
+
+            NetworkObject netObj = hits[i].collider.GetComponentInParent<NetworkObject>();
+
+            if (netObj == null)
+            {
+                continue;
+            }
+
+            Item item = netObj.GetComponent<Item>();
+
+            if (item == null || item.IsHeld)
+            {
+                continue;
+            }
+
+            closestNetObj = netObj;
+            closestDistance = hits[i].distance;
+        }
+
+        if (closestNetObj == null)
         {
             return false;
         }
 
-        Item item = netObj.GetComponent<Item>();
-
-        if (item == null)
-        {
-            return false;
-        }
-
-        if (item.IsHeld)
-        {
-            return false;
-        }
-
-        networkObjectId = netObj.NetworkObjectId;
+        networkObjectId = closestNetObj.NetworkObjectId;
         return true;
     }
 
@@ -266,6 +287,44 @@ public class PlayerPickup : NetworkBehaviour
     public bool IsHoldingItem()
     {
         return IsHoldingItemLocally;
+    }
+
+    public bool ServerTryGetHeldItem(out Item item)
+    {
+        item = null;
+
+        if (!IsServer) return false;
+
+        if (heldItem == null)
+        {
+            TryResolveHeldItem();
+        }
+
+        item = heldItem;
+        return item != null;
+    }
+
+    public bool ServerTryReleaseHeldItem(Item item, Vector3 releasePosition, Quaternion releaseRotation)
+    {
+        if (!IsServer) return false;
+        if (item == null) return false;
+
+        if (heldItem == null)
+        {
+            TryResolveHeldItem();
+        }
+
+        if (heldItem != item)
+        {
+            return false;
+        }
+
+        heldItem.ServerStopHolding(releasePosition, releaseRotation);
+
+        heldItem = null;
+        heldItemNetId.Value = NoItem;
+
+        return true;
     }
 
     private void OnEnable()
