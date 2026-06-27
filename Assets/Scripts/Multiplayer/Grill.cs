@@ -17,40 +17,31 @@ public class Grill : MonoBehaviour
 
     private readonly Dictionary<GameObject, GrillItem> itemsOnGrill = new();
 
-    void OnTriggerEnter(Collider other)
+    void OnTriggerStay(Collider other)
     {
-        var rend = other.GetComponent<Renderer>();
+        var root = other.transform.root.gameObject;
+        var rend = root.GetComponentInChildren<Renderer>();
         if (rend == null) return;
 
-        if (!itemsOnGrill.ContainsKey(other.gameObject))
+        if (!itemsOnGrill.ContainsKey(root))
         {
-            itemsOnGrill[other.gameObject] = new GrillItem
+            itemsOnGrill[root] = new GrillItem
             {
                 renderer = rend,
                 originalColor = rend.material.color,
                 cookLevel = 0f
             };
         }
-    }
 
-    void OnTriggerExit(Collider other)
-    {
-        itemsOnGrill.Remove(other.gameObject);
-    }
+        var item = itemsOnGrill[root];
+        item.cookLevel = Mathf.Min(item.cookLevel + cookSpeed * Time.deltaTime, 1f);
 
-    void Update()
-    {
-        foreach (var item in itemsOnGrill.Values)
-        {
-            item.cookLevel = Mathf.Min(item.cookLevel + cookSpeed * Time.deltaTime, 1f);
+        Color target;
+        if (item.cookLevel < 0.5f)
+            target = Color.Lerp(item.originalColor, CookedColor, item.cookLevel * 2f);
+        else
+            target = Color.Lerp(CookedColor, BurntColor, (item.cookLevel - 0.5f) * 2f);
 
-            Color target;
-            if (item.cookLevel < 0.5f)
-                target = Color.Lerp(item.originalColor, CookedColor, item.cookLevel * 2f);
-            else
-                target = Color.Lerp(CookedColor, BurntColor, (item.cookLevel - 0.5f) * 2f);
-
-            item.renderer.material.color = target;
-        }
+        rend.material.color = target;
     }
 }

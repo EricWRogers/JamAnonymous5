@@ -16,6 +16,8 @@ GameObject:
   - component: {fileID: -3704490270248090555}
   - component: {fileID: 4329862253677000090}
   - component: {fileID: 4911711708272193268}
+  - component: {fileID: -5635758438039719987}
+  - component: {fileID: -4123908584126483778}
   m_Layer: 0
   m_Name: Bottom Bun
   m_TagString: Untagged
@@ -169,7 +171,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!114 &4329862253677000090
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -183,8 +185,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Item
   ShowTopMostFoldoutHeaderGroup: 1
-  itemName: Item
-  itemType: 0
+  itemName: BottomBun
+  itemType: 2
 --- !u!114 &4911711708272193268
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -231,3 +233,42 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &-5635758438039719987
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 161623600831933357}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7e6c84143a4ee7a88e6ef83abe91ffc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodIngredient
+  definition: {fileID: 11400000, guid: 8ffa04368a937e4279d336439db2f01e, type: 2}
+  useDefinitionDefaultStates: 1
+  cookState: 0
+  prepState: 0
+  cookProgress: 0
+--- !u!114 &-4123908584126483778
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 161623600831933357}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b1780669e943355b95a64d77ee6820b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodAssemblyBase
+  ShowTopMostFoldoutHeaderGroup: 1
+  foodToWrap: {fileID: 11400000, guid: 3955b56fe7d0f73d2b87dfcb9c84721a, type: 2}
+  wrappedFoodSpawnPoint: {fileID: 667394552476562139}
+  despawnIngredientsWhenWrapped: 1
+  logDebugMessages: 1
+  snapRoot: {fileID: 667394552476562139}
+  firstIngredientLocalOffset: {x: 0, y: 0.08, z: 0}
+  stackDirection: {x: 0, y: 1, z: 0}
+  ingredientSpacing: 0.08
+  snappedLocalEulerAngles: {x: 0, y: 0, z: 0}
