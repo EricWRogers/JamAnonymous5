@@ -65,7 +65,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: Tomato
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -335,7 +335,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: MORE MEAT
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -605,7 +605,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: Ketchup
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -795,7 +795,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 458904988
+  GlobalObjectIdHash: 3897736463
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -825,6 +825,11 @@ MonoBehaviour:
   startShift: {fileID: 6915006100592184676}
   mealSelect: {fileID: 8734575497530417115}
   ingredientSelect: {fileID: 7520484309660941635}
+  text: {fileID: 7503839132563423702}
+  dong: {fileID: 11400000, guid: c081d1a89fc5d7d0084f8fb7227e88e6, type: 2}
+  patty: {fileID: 11400000, guid: 4bb14d98fadff924b88d339bb6970ed8, type: 2}
+  ingredientsForOrder: []
+  orderText: 
 --- !u!1 &1411098795083803148
 GameObject:
   m_ObjectHideFlags: 0
@@ -890,7 +895,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: Lettuce
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1107,6 +1112,7 @@ GameObject:
   - component: {fileID: 5047790975707045826}
   - component: {fileID: 1818910774649068488}
   - component: {fileID: 5039019717201852428}
+  - component: {fileID: 2352396996804462393}
   m_Layer: 5
   m_Name: Relish
   m_TagString: Untagged
@@ -1215,7 +1221,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1818910774649068488}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8446443310629549353}
+        m_TargetAssemblyTypeName: POS, Assembly-CSharp
+        m_MethodName: AddIngredient
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 2352396996804462393}
+          m_ObjectArgumentAssemblyTypeName: FoodIngredientButtonDefinition, Assembly-CSharp
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &2352396996804462393
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2708628943654609014}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e0fa54f9a06e54ea367da2cb3afd2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodIngredientButtonDefinition
+  ingredient: {fileID: 0}
 --- !u!1 &3019923303880361291
 GameObject:
   m_ObjectHideFlags: 0
@@ -1349,6 +1380,18 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+      - m_Target: {fileID: 1318166741681028908}
+        m_TargetAssemblyTypeName: UnityEngine.Animator, UnityEngine
+        m_MethodName: SetTrigger
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: open
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &3800551689305471707
 GameObject:
   m_ObjectHideFlags: 0
@@ -1361,8 +1404,9 @@ GameObject:
   - component: {fileID: 5139355002885248246}
   - component: {fileID: 6899078930032256594}
   - component: {fileID: 4014371143385442029}
+  - component: {fileID: 8079599707469086738}
   m_Layer: 5
-  m_Name: Ketchup (4)
+  m_Name: Tomato
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1469,7 +1513,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 6899078930032256594}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8446443310629549353}
+        m_TargetAssemblyTypeName: POS, Assembly-CSharp
+        m_MethodName: AddIngredient
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 8079599707469086738}
+          m_ObjectArgumentAssemblyTypeName: FoodIngredientButtonDefinition, Assembly-CSharp
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &8079599707469086738
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3800551689305471707}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e0fa54f9a06e54ea367da2cb3afd2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodIngredientButtonDefinition
+  ingredient: {fileID: 11400000, guid: 969c0a03def19a9a48cc8ac2f5c77748, type: 2}
 --- !u!1 &4243525917041077937
 GameObject:
   m_ObjectHideFlags: 0
@@ -2022,7 +2091,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: Relish
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2107,7 +2176,7 @@ GameObject:
   - component: {fileID: 8431424917818147741}
   - component: {fileID: 8669763304126311363}
   m_Layer: 5
-  m_Name: Ketchup (5)
+  m_Name: Extra Meat
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2214,7 +2283,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 8431424917818147741}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8446443310629549353}
+        m_TargetAssemblyTypeName: POS, Assembly-CSharp
+        m_MethodName: AddMoreMeat
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &5670652210641460542
 GameObject:
   m_ObjectHideFlags: 0
@@ -2227,8 +2308,9 @@ GameObject:
   - component: {fileID: 1811332331939918751}
   - component: {fileID: 1893210319010934878}
   - component: {fileID: 2723089715656867078}
+  - component: {fileID: 928577042481068923}
   m_Layer: 5
-  m_Name: Ketchup (3)
+  m_Name: Lettuce
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2335,7 +2417,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1893210319010934878}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8446443310629549353}
+        m_TargetAssemblyTypeName: POS, Assembly-CSharp
+        m_MethodName: AddIngredient
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 928577042481068923}
+          m_ObjectArgumentAssemblyTypeName: FoodIngredientButtonDefinition, Assembly-CSharp
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &928577042481068923
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5670652210641460542}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e0fa54f9a06e54ea367da2cb3afd2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodIngredientButtonDefinition
+  ingredient: {fileID: 0}
 --- !u!1 &6248778830426807300
 GameObject:
   m_ObjectHideFlags: 0
@@ -2401,7 +2508,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: Mustard
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2661,7 +2768,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &3211963608901229683
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2701,6 +2808,7 @@ GameObject:
   - component: {fileID: 5991858461591471155}
   - component: {fileID: 2952053961753914654}
   - component: {fileID: 7868630186620406142}
+  - component: {fileID: 1635050350860547657}
   m_Layer: 5
   m_Name: Ketchup
   m_TagString: Untagged
@@ -2809,7 +2917,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2952053961753914654}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8446443310629549353}
+        m_TargetAssemblyTypeName: POS, Assembly-CSharp
+        m_MethodName: AddIngredient
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 1635050350860547657}
+          m_ObjectArgumentAssemblyTypeName: FoodIngredientButtonDefinition, Assembly-CSharp
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &1635050350860547657
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7910706200522430143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e0fa54f9a06e54ea367da2cb3afd2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IngredientButtonDefinition
+  ingredient: {fileID: 0}
 --- !u!1 &8734575497530417115
 GameObject:
   m_ObjectHideFlags: 0
@@ -2996,6 +3129,7 @@ GameObject:
   - component: {fileID: 7150582788919355574}
   - component: {fileID: 69200541022848552}
   - component: {fileID: 4440784036170809431}
+  - component: {fileID: 4955559270816479971}
   m_Layer: 5
   m_Name: Mustard
   m_TagString: Untagged
@@ -3104,7 +3238,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 69200541022848552}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8446443310629549353}
+        m_TargetAssemblyTypeName: POS, Assembly-CSharp
+        m_MethodName: AddIngredient
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 4955559270816479971}
+          m_ObjectArgumentAssemblyTypeName: FoodIngredientButtonDefinition, Assembly-CSharp
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &4955559270816479971
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9012430955298493580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e0fa54f9a06e54ea367da2cb3afd2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodIngredientButtonDefinition
+  ingredient: {fileID: 0}
 --- !u!1001 &263032329779951421
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3115,15 +3274,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 09058ba546d8ae34582d6fd0631993f3, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -38.889954
+      value: -38.03634
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 09058ba546d8ae34582d6fd0631993f3, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.79780287
+      value: 0.49590558
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 09058ba546d8ae34582d6fd0631993f3, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -4.461983
+      value: -8.727558
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 09058ba546d8ae34582d6fd0631993f3, type: 3}
       propertyPath: m_LocalRotation.w

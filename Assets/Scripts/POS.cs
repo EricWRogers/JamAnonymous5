@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -8,6 +10,17 @@ public class POS : NetworkBehaviour
     public GameObject mealSelect;
     public GameObject ingredientSelect;
 
+    public TextMeshProUGUI text;
+
+    public FoodIngredientDefinition dong;
+    public FoodIngredientDefinition patty;
+    
+    private bool isThisPatty = false;
+
+    public List<FoodIngredientDefinition> ingredientsForOrder = new List<FoodIngredientDefinition>();
+    
+    public string orderText;
+    
     public void Start()
     {
         startShift.SetActive(true);
@@ -25,19 +38,53 @@ public class POS : NetworkBehaviour
     {
         mealSelect.SetActive(false);
         ingredientSelect.SetActive(true);
-        // Add burger to list
+        
+        ingredientsForOrder.Add(patty);
+        isThisPatty = true;
+        
+        orderText = "";
+        text.text = orderText;
     }
     
     public void SelectHotdog()
     {
         mealSelect.SetActive(false);
         ingredientSelect.SetActive(true);
-        // Add hotdog to list
+        
+        ingredientsForOrder.Add(dong);
+        isThisPatty = false;
+
+        orderText = "";
+        text.text = orderText;
     }
 
     public void SubmitOrder()
     {
         ingredientSelect.SetActive(false);
         mealSelect.SetActive(true);
+    }
+
+    public void AddIngredient(FoodIngredientButtonDefinition foodIngredient)
+    {
+        ingredientsForOrder.Add(foodIngredient.ingredient);
+        
+        orderText += foodIngredient.ingredient.IngredientName + "\n";
+        text.text = orderText;
+    }
+
+    public void AddMoreMeat()
+    {
+        if (isThisPatty)
+        {
+            ingredientsForOrder.Add(patty);
+            orderText += patty.IngredientName + "\n";
+        }
+        else
+        {
+            ingredientsForOrder.Add(dong);
+            orderText += dong.IngredientName + "\n";
+        }
+        
+        text.text = orderText;
     }
 }
