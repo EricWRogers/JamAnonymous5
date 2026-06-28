@@ -1,5 +1,6 @@
 using UnityEngine;
 using Unity.Netcode;
+using System.Collections.Generic;
 
 public class OrderManager : NetworkBehaviour
 {
@@ -7,6 +8,7 @@ public class OrderManager : NetworkBehaviour
 
     private ulong[] slotIds = new ulong[3] { 0, 0, 0 };
     private string[] slotIngredients = new string[3] { "", "", "" };
+    private Queue<(ulong, string)> backlog = new();
 
     public event System.Action OrdersUpdated;
 
@@ -35,23 +37,39 @@ public class OrderManager : NetworkBehaviour
                 return;
             }
         }
+
+        backlog.Enqueue((customerId, ingredientNames));
     }
 
     public void ClearOrder(ulong customerId)
     {
+        Debug.Log($"ClearOrder called, IsServer: {IsServer}, customerId: {customerId}");
+
         if (!IsServer) return;
+        Debug.Log($"Firing ClearOrderClientRpc for {customerId}");
         ClearOrderClientRpc(customerId);
     }
 
     [ClientRpc]
     void ClearOrderClientRpc(ulong customerId)
     {
+        Debug.Log($"ClearOrderClientRpc received for {customerId}, checking {slotIds[0]}, {slotIds[1]}, {slotIds[2]}");
         for (int i = 0; i < 3; i++)
         {
             if (slotIds[i] == customerId)
             {
-                slotIds[i] = 0;
-                slotIngredients[i] = "";
+                if (backlog.Count > 0)
+                {
+                    var next = backlog.Dequeue();
+                    slotIds[i] = next.Item1;
+                    slotIngredients[i] = next.Item2;
+                }
+                else
+                {
+                    slotIds[i] = 0;
+                    slotIngredients[i] = "";
+                }
+
                 OrdersUpdated?.Invoke();
                 return;
             }

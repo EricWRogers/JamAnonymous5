@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Netcode;    
 [RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(AudioSource))]
 public class PlayerMovement : NetworkBehaviour
 {
     [Header("Movement")]
@@ -24,12 +25,24 @@ public class PlayerMovement : NetworkBehaviour
 
     public Transform groundCheck;
 
+    [Header("Footsteps")]
+    [SerializeField] private AudioSource footstepAudioSource;
+    [SerializeField] private AudioClip[] footstepClips;
+    [SerializeField] private float footstepWalkInterval = 0.42f;
+    [SerializeField] private float footstepSprintInterval = 0.28f;
+    [SerializeField] private float footstepMinSpeed = 0.2f;
+    [SerializeField, Range(0f, 1f)] private float footstepVolume = 0.65f;
+    [SerializeField, Range(0f, 0.25f)] private float footstepPitchVariance = 0.08f;
+
     private Rigidbody rb;
     private InputSystem_Actions inputs;
     private bool isGrounded;
     private float coyoteTimer;
     private Vector2 moveInput;
     private Animator animator;
+    private Vector3 previousPosition;
+    private float remotePlanarSpeed;
+    private float nextFootstepTime;
 
     void Awake()
     {
@@ -40,6 +53,13 @@ public class PlayerMovement : NetworkBehaviour
         inputs = new InputSystem_Actions();
 
         TryGetComponent<Animator>(out animator);
+
+        if (footstepAudioSource == null)
+        {
+            footstepAudioSource = GetComponent<AudioSource>();
+        }
+
+        previousPosition = transform.position;
     }
 
     void OnEnable()
@@ -57,6 +77,7 @@ public class PlayerMovement : NetworkBehaviour
     private void OnJump(InputAction.CallbackContext ctx)
     {
         if (!IsOwner) return;
+        if (NetworkSessionMenu.IsGameMenuOpen) return;
 
         if (coyoteTimer <= 0f) return;
 
@@ -66,19 +87,30 @@ public class PlayerMovement : NetworkBehaviour
 
     void Update()
     {
-
-        
-        
-        if (!IsOwner) return;
-        
-        moveInput = inputs.Player.Move.ReadValue<Vector2>();
-
         isGrounded = CheckGrounded();
 
-        if (isGrounded)
-            coyoteTimer = coyoteTime;
+        if (IsOwner)
+        {
+            if (NetworkSessionMenu.IsGameMenuOpen)
+            {
+                moveInput = Vector2.zero;
+                StopHorizontalMovement();
+            }
+            else
+            {
+                moveInput = inputs.Player.Move.ReadValue<Vector2>();
+
+                if (isGrounded)
+                    coyoteTimer = coyoteTime;
+                else
+                    coyoteTimer -= Time.deltaTime;
+            }
+        }
         else
-            coyoteTimer -= Time.deltaTime;
+        {
+            Vector3 delta = transform.position - previousPosition;
+            remotePlanarSpeed = new Vector3(delta.x, 0f, delta.z).magnitude / Mathf.Max(Time.deltaTime, 0.0001f);
+        }
 
         if (animator != null)
         {
@@ -89,11 +121,20 @@ public class PlayerMovement : NetworkBehaviour
             animator.SetFloat("Speed", speedForAnim);
             animator.SetBool("IsJumping", jumping);
         }
+
+        UpdateFootsteps();
+        previousPosition = transform.position;
     }
 
     void FixedUpdate()
     {
         if (!IsOwner) return;
+        if (NetworkSessionMenu.IsGameMenuOpen)
+        {
+            StopHorizontalMovement();
+            ApplyExtraGravity();
+            return;
+        }
 
         ApplyMovement();
         ApplyExtraGravity();
@@ -136,5 +177,64 @@ public class PlayerMovement : NetworkBehaviour
     {
         Vector3 origin = groundCheck != null ? groundCheck.position : transform.position;
         return Physics.Raycast(origin, Vector3.down, groundCheckDistance, groundLayer);
+    }
+
+    private void UpdateFootsteps()
+    {
+        if (footstepAudioSource == null) return;
+        if (footstepClips == null || footstepClips.Length == 0) return;
+        if (!isGrounded) return;
+
+        float planarSpeed = GetPlanarSpeed();
+
+        if (planarSpeed < footstepMinSpeed)
+        {
+            StopFootstepAudio();
+            return;
+        }
+
+        if (Time.time < nextFootstepTime) return;
+        if (footstepAudioSource.isPlaying) return;
+
+        AudioClip clip = footstepClips[Random.Range(0, footstepClips.Length)];
+
+        if (clip == null) return;
+
+        footstepAudioSource.pitch = Random.Range(1f - footstepPitchVariance, 1f + footstepPitchVariance);
+        footstepAudioSource.clip = clip;
+        footstepAudioSource.volume = footstepVolume;
+        footstepAudioSource.Play();
+        nextFootstepTime = Time.time + GetFootstepInterval(planarSpeed);
+    }
+
+    private void StopFootstepAudio()
+    {
+        if (footstepAudioSource == null) return;
+        if (!footstepAudioSource.isPlaying) return;
+
+        footstepAudioSource.Stop();
+    }
+
+    private void StopHorizontalMovement()
+    {
+        rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+        StopFootstepAudio();
+    }
+
+    private float GetPlanarSpeed()
+    {
+        if (!IsOwner)
+        {
+            return remotePlanarSpeed;
+        }
+
+        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        return horizontalVelocity.magnitude;
+    }
+
+    private float GetFootstepInterval(float planarSpeed)
+    {
+        float sprintThreshold = (walkSpeed + sprintSpeed) * 0.5f;
+        return planarSpeed >= sprintThreshold ? footstepSprintInterval : footstepWalkInterval;
     }
     }

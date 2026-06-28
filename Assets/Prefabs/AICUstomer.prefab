@@ -382,6 +382,7 @@ MonoBehaviour:
   orderUI: {fileID: 7238366814083974328}
   eatingDuration: 10
   foodOffset: {x: 1, y: 1, z: 0.5}
+  flatRatePerIngredient: 2
 --- !u!195 &5175488373422561240
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -599,6 +600,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CustomerOrderUI
   label: {fileID: 7141804871722193659}
   bubble: {fileID: 8965065147476894344}
+  billboardTarget: {fileID: 7716733879710391990}
 --- !u!1 &8965065147476894344
 GameObject:
   m_ObjectHideFlags: 0

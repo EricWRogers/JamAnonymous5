@@ -44,6 +44,16 @@ public class GameManager : NetworkBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    public override void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+
+        base.OnDestroy();
+    }
+
     public void SetJoinCode(string code)
     {
         JoinCode = code;

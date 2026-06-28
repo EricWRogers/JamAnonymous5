@@ -50,6 +50,10 @@ public class CustomerAI : NetworkBehaviour
 
     private Item deliveredTray;
 
+    [Header("Food Scoring")]
+    public int flatRatePerIngredient = 2;
+
+   
     public override void OnNetworkSpawn()
     {
         if (!IsHost) return;
@@ -134,7 +138,6 @@ public class CustomerAI : NetworkBehaviour
                 break;
 
             case CustomerState.Eating:
-                orderUI.Hide();
                 UpdateOrderUIClientRpc((int)CustomerState.Eating);
                 StartCoroutine(EatAndLeave());
                 break;
@@ -199,6 +202,7 @@ public class CustomerAI : NetworkBehaviour
                 var order = GameManager.Instance.GetOrder(customerId.Value);
                 if (order.HasValue && order.Value.State == OrderState.Delivered)
                     SetState(CustomerState.Eating);
+                    
                 break;
         }
     }
@@ -280,8 +284,20 @@ public class CustomerAI : NetworkBehaviour
     {
         deliveredTray = tray;
 
-        tray.NetworkObject.RemoveOwnership();
+        float score = ScoreOrder(tray);
+        float maxScore = wantedIngredients.Count;
+        float scoreRatio = Mathf.Clamp01(score / maxScore);
 
+        float flatRatePerIngredient = 2f; 
+        int payout = Mathf.RoundToInt(wantedIngredients.Count * flatRatePerIngredient * scoreRatio);
+
+        Debug.Log($"Order score: {score}/{maxScore}, Payout: ${payout:F2}");
+
+        RestaurantMoney.Instance.ServerAddMoney(payout);
+        ShowScoreClientRpc(score, maxScore);
+        OrderManager.Instance.ClearOrder(customerId.Value);
+
+        tray.NetworkObject.RemoveOwnership();
         tray.ServerStopHolding(transform.position + transform.TransformDirection(foodOffset), transform.rotation);
         tray.NetworkObject.TrySetParent(transform);
 
@@ -293,8 +309,8 @@ public class CustomerAI : NetworkBehaviour
 
         LockFoodObjectClientRpc(tray.NetworkObject.NetworkObjectId);
         SetState(CustomerState.Eating);
-        OrderManager.Instance.ClearOrder(customerId.Value);
-    }
+        ShowScoreClientRpc(score, maxScore); 
+}
 
     [ClientRpc]
     void LockFoodObjectClientRpc(ulong trayNetId)
@@ -316,5 +332,57 @@ public class CustomerAI : NetworkBehaviour
         foreach (var ing in wantedIngredients)
             names.Add(ing.IngredientName);
         return string.Join(",", names);
+    }
+
+    float ScoreOrder(Item tray)
+    {
+        var delivered = tray.GetComponentsInChildren<FoodIngredient>();
+        var wanted = new List<FoodIngredientDefinition>(wantedIngredients);
+
+        float score = 0f;
+
+        foreach (var ingredient in delivered)
+        {
+            if (ingredient.Definition == null) continue;
+
+            bool exactMatch = false;
+            for (int i = 0; i < wanted.Count; i++)
+            {
+                if (wanted[i] == ingredient.Definition)
+                {
+                    score += 1f;
+                    wanted.RemoveAt(i);
+                    exactMatch = true;
+                    break;
+                }
+            }
+
+            if (exactMatch) continue;
+
+            if (ingredient.Definition.IsTrash)
+            {
+                bool subMatch = false;
+                for (int i = 0; i < wanted.Count; i++)
+                {
+                    if (ingredient.Definition.SubstituteFor == wanted[i])
+                    {
+                        score -= 0.5f;
+                        wanted.RemoveAt(i);
+                        subMatch = true;
+                        break;
+                    }
+                }
+
+                if (!subMatch) score -= 0.5f; 
+            }
+        }
+
+        return score;
+    }
+
+    [ClientRpc]
+    void ShowScoreClientRpc(float score, float maxScore)
+    {
+        orderUI.ShowScore(score, maxScore);
     }
 }

@@ -47,7 +47,7 @@ public class PlayerCamera : NetworkBehaviour
 
     void LateUpdate()
     {
-        if (!IsOwner) return;
+        if (!IsOwner || NetworkSessionMenu.IsGameMenuOpen) return;
 
         Vector2 look = inputs.Player.Look.ReadValue<Vector2>();
 
