@@ -22,6 +22,8 @@ public class PlayerMovement : NetworkBehaviour
     public LayerMask groundLayer;
     public float groundCheckDistance = 1.05f;
 
+    public Transform groundCheck;
+
     private Rigidbody rb;
     private InputSystem_Actions inputs;
     private bool isGrounded;
@@ -65,9 +67,7 @@ public class PlayerMovement : NetworkBehaviour
     void Update()
     {
 
-        Debug.DrawRay(transform.position, Vector3.down * groundCheckDistance,
-        isGrounded ? Color.green : Color.red);
-        Debug.Log($"Grounded: {CheckGrounded()}");
+        
         
         if (!IsOwner) return;
         
@@ -134,6 +134,7 @@ public class PlayerMovement : NetworkBehaviour
 
     bool CheckGrounded()
     {
-        return Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, groundLayer);
+        Vector3 origin = groundCheck != null ? groundCheck.position : transform.position;
+        return Physics.Raycast(origin, Vector3.down, groundCheckDistance, groundLayer);
     }
-}
+    }
