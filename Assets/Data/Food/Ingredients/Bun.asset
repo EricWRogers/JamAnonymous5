@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: daee978bc7ca31d68b70056a6095715e, type: 3}
   m_Name: Bun
   m_EditorClassIdentifier: Assembly-CSharp::FoodIngredientDefinition
-  ingredientName: Ingredient
+  ingredientName: Dong Bun
   quality: 0
   goodIngredientCost: 1
   canBeCooked: 0
