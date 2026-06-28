@@ -272,10 +272,27 @@ public class CustomerAI : NetworkBehaviour
     public void ReceiveFood(Item tray)
     {
         deliveredTray = tray;
-        
+
         Vector3 targetPos = transform.position + transform.TransformDirection(foodOffset);
         tray.ServerStopHolding(targetPos, transform.rotation);
 
+        tray.NetworkObject.TrySetParent(transform);
+
+        LockFoodObjectClientRpc(tray.NetworkObject.NetworkObjectId);
+
         SetState(CustomerState.Eating);
+    }
+
+    [ClientRpc]
+    void LockFoodObjectClientRpc(ulong trayNetId)
+    {
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(trayNetId, out NetworkObject netObj))
+            return;
+        //This is kinda jank but we need to ensure that the food cant be collided with, it wont fall and many other such issues.
+        foreach (var rb in netObj.GetComponentsInChildren<Rigidbody>())
+            rb.isKinematic = true;
+
+        foreach (var col in netObj.GetComponentsInChildren<Collider>())
+            col.enabled = false;
     }
 }
