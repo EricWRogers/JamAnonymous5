@@ -27,6 +27,10 @@ public class FoodIngredientDefinition : ScriptableObject
     [SerializeField] private GameObject ingredientPrefab;
     [SerializeField] private Sprite icon;
 
+    [Header("Substitution")] //This is for the garbage ingredients
+    [SerializeField] private FoodIngredientDefinition substituteFor;
+    public FoodIngredientDefinition SubstituteFor => substituteFor;
+
     public string IngredientName => ingredientName;
     public IngredientQuality Quality => quality;
     public bool IsTrash => quality == IngredientQuality.Trash;
