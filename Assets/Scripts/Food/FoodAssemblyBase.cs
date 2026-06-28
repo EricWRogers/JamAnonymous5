@@ -366,8 +366,9 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 
         Vector3 direction = stackDirection.sqrMagnitude > 0f ? stackDirection.normalized : Vector3.up;
         Vector3 previousPosition = snappedIngredientLocalPositions[snappedIngredientLocalPositions.Count - 1];
+        float previousStackDistance = Vector3.Dot(previousPosition - firstIngredientLocalOffset, direction);
 
-        return previousPosition + direction * ingredientSpacing * Mathf.Max(0f, spacingMultiplier);
+        return firstIngredientLocalOffset + direction * (previousStackDistance + ingredientSpacing * Mathf.Max(0f, spacingMultiplier));
     }
 
     private void ApplySnappedPose(FoodIngredient ingredient, Vector3 localPosition, Quaternion localRotation)

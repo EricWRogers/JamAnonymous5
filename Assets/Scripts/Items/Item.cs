@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -24,12 +25,12 @@ public class Item : NetworkBehaviour
     }
 
     private Rigidbody rb;
-    private Collider col;
     private NetworkTransform networkTransform;
     private PlayerPickup cachedHolder;
     private RigidbodyInterpolation defaultInterpolation;
     private bool defaultAutoObjectParentSync;
     private bool localParentLocked;
+    private readonly Dictionary<Collider, bool> colliderStatesBeforeHold = new();
 
     private const ulong NoHolder = ulong.MaxValue;
 
@@ -44,7 +45,6 @@ public class Item : NetworkBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        col = GetComponent<Collider>();
         networkTransform = GetComponent<NetworkTransform>();
 
         if (rb != null)
@@ -78,6 +78,11 @@ public class Item : NetworkBehaviour
 
     private void LateUpdate()
     {
+        if (IsHeld)
+        {
+            SuppressCollidersWhileHeld();
+        }
+
         if (localParentLocked) return;
         if (!IsHeld) return;
         if (transform.parent != null) return;
@@ -230,15 +235,54 @@ public class Item : NetworkBehaviour
             }
         }
 
-        if (col != null)
+        if (held)
         {
-            col.enabled = !held;
+            SuppressCollidersWhileHeld();
+        }
+        else
+        {
+            RestoreSuppressedColliders();
         }
 
         if (networkTransform != null)
         {
             networkTransform.enabled = !held;
         }
+    }
+
+    private void SuppressCollidersWhileHeld()
+    {
+        Collider[] colliders = GetComponentsInChildren<Collider>(includeInactive: true);
+
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider currentCollider = colliders[i];
+
+            if (currentCollider == null)
+            {
+                continue;
+            }
+
+            if (!colliderStatesBeforeHold.ContainsKey(currentCollider))
+            {
+                colliderStatesBeforeHold.Add(currentCollider, currentCollider.enabled);
+            }
+
+            currentCollider.enabled = false;
+        }
+    }
+
+    private void RestoreSuppressedColliders()
+    {
+        foreach (KeyValuePair<Collider, bool> colliderState in colliderStatesBeforeHold)
+        {
+            if (colliderState.Key != null)
+            {
+                colliderState.Key.enabled = colliderState.Value;
+            }
+        }
+
+        colliderStatesBeforeHold.Clear();
     }
 
     private bool TryAttachToHolder()
