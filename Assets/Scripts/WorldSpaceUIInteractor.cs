@@ -7,10 +7,15 @@ using UnityEngine.InputSystem;
 public class WorldSpaceUIInteractor : MonoBehaviour
 {
     public float interactDistance = 3f;
+    private InputSystem_Actions inputs;
 
+    void Awake()
+    {
+        inputs = new InputSystem_Actions();
+    }
     void Update()
     {
-        if (!Mouse.current.leftButton.wasPressedThisFrame) return;
+        if (!Attack.attack.triggered) return;
 
         PointerEventData pointerData = new PointerEventData(EventSystem.current)
         {
