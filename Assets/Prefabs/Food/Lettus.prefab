@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 8664697159113452799}
   - component: {fileID: -3112038613444845152}
   - component: {fileID: 7905667833466217596}
+  - component: {fileID: 4135596767751476278}
   m_Layer: 0
   m_Name: Lettus
   m_TagString: Untagged
@@ -184,7 +185,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Item
   ShowTopMostFoldoutHeaderGroup: 1
-  itemName: Item
+  itemName: Lettuce
   itemType: 2
 --- !u!114 &-3112038613444845152
 MonoBehaviour:
@@ -249,3 +250,24 @@ MonoBehaviour:
   cookState: 0
   prepState: 0
   cookProgress: 0
+--- !u!114 &4135596767751476278
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 69041660539441122}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7ab83271682426b8f7b9d14b2e63866, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChoppableItem
+  requiredToolName: Knife
+  serverInteractRange: 4
+  embeddedVisualState: 1
+  wholeVisualRoot: {fileID: 0}
+  wholeVisualPrefab: {fileID: 2283380054022409974, guid: 88a7d4555baf1d614b145eb94c2e75af, type: 3}
+  choppedVisualRoot: {fileID: 0}
+  choppedVisualPrefab: {fileID: 0}
+  visualParent: {fileID: 0}
+  choppedPrepState: 2

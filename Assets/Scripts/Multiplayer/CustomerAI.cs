@@ -7,6 +7,7 @@ using Unity.Netcode;
 [System.Serializable]
 public class MealTemplate
 {
+    
     public string mealName;
     public FoodIngredientDefinition[] ingredients;
 }
@@ -41,6 +42,14 @@ public class CustomerAI : NetworkBehaviour
     private NavMeshAgent agent;
     private Seat claimedSeat;
 
+    public float eatingDuration = 10f;
+
+    
+    [Header("Food Placement")]
+    public Vector3 foodOffset = new Vector3(0, 0, 0.5f);
+
+    private Item deliveredTray;
+
     public override void OnNetworkSpawn()
     {
         if (!IsHost) return;
@@ -53,7 +62,7 @@ public class CustomerAI : NetworkBehaviour
         SetState(CustomerState.WalkingToRegister);
     }
 
-        void GenerateOrder()
+    void GenerateOrder()
     {
         if (possibleMeals == null || possibleMeals.Length == 0) return;
         var meal = possibleMeals[Random.Range(0, possibleMeals.Length)];
@@ -66,13 +75,13 @@ public class CustomerAI : NetworkBehaviour
         syncedIngredientNames = names;
         SyncIngredientsClientRpc(string.Join(",", names));
     }
+
     [ClientRpc]
     void SyncIngredientsClientRpc(string ingredientNames)
     {
         if (IsHost) return;
         syncedIngredientNames = new List<string>(ingredientNames.Split(','));
     }
-
 
     public void SetQueueDestination(Vector3 position, bool isAtCounter)
     {
@@ -83,9 +92,17 @@ public class CustomerAI : NetworkBehaviour
             SetState(CustomerState.AtCounter);
     }
 
+    [ClientRpc]
+    void SyncStateClientRpc(CustomerState newState)
+    {
+        if (IsHost) return;
+        State = newState;
+    }
+
     public void SetState(CustomerState newState)
     {
         State = newState;
+        SyncStateClientRpc(newState);
 
         switch (State)
         {
@@ -117,13 +134,29 @@ public class CustomerAI : NetworkBehaviour
                 break;
 
             case CustomerState.Eating:
+                orderUI.Hide();
+                UpdateOrderUIClientRpc((int)CustomerState.Eating);
                 StartCoroutine(EatAndLeave());
                 break;
 
             case CustomerState.Leaving:
                 if (claimedSeat != null) claimedSeat.Vacate();
-                orderUI.Hide();
+                    orderUI.Hide();
                 UpdateOrderUIClientRpc((int)CustomerState.Leaving);
+                
+                if (deliveredTray != null && deliveredTray.NetworkObject != null)
+                {
+                    NetworkObject[] childNetObjs = deliveredTray.GetComponentsInChildren<NetworkObject>();
+                    foreach (NetworkObject child in childNetObjs)
+                    {
+                        if (child != deliveredTray.NetworkObject && child.IsSpawned)
+                            child.Despawn();
+                    }
+
+                    deliveredTray.NetworkObject.Despawn();
+                    deliveredTray = null;
+                }
+
                 agent.SetDestination(CustomerSpawner.Instance.exitPoint.position);
                 StartCoroutine(DestroyWhenArrived());
                 break;
@@ -194,7 +227,7 @@ public class CustomerAI : NetworkBehaviour
 
     IEnumerator EatAndLeave()
     {
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSeconds(eatingDuration);
         SetState(CustomerState.Leaving);
     }
 
@@ -206,9 +239,10 @@ public class CustomerAI : NetworkBehaviour
 
     public void DeliverFood()
     {
-        if (State != CustomerState.WaitingForFood) return;
-        GameManager.Instance.DeliverOrderServerRpc(customerId.Value);
+    if (State != CustomerState.WaitingForFood) return;
+    SetState(CustomerState.Eating);
     }
+
 
     [ClientRpc]
     void UpdateOrderUIClientRpc(int stateIndex)
@@ -225,9 +259,40 @@ public class CustomerAI : NetworkBehaviour
                 orderUI.StopYapping();
                 orderUI.ShowOrderNumber(customerId.Value);
                 break;
+            case CustomerState.Eating:
+                orderUI.Hide();
+                break;
             case CustomerState.Leaving:
                 orderUI.Hide();
                 break;
         }
+    }
+
+
+    public void ReceiveFood(Item tray)
+    {
+        deliveredTray = tray;
+
+        Vector3 targetPos = transform.position + transform.TransformDirection(foodOffset);
+        tray.ServerStopHolding(targetPos, transform.rotation);
+
+        tray.NetworkObject.TrySetParent(transform);
+
+        LockFoodObjectClientRpc(tray.NetworkObject.NetworkObjectId);
+
+        SetState(CustomerState.Eating);
+    }
+
+    [ClientRpc]
+    void LockFoodObjectClientRpc(ulong trayNetId)
+    {
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(trayNetId, out NetworkObject netObj))
+            return;
+        //This is kinda jank but we need to ensure that the food cant be collided with, it wont fall and many other such issues.
+        foreach (var rb in netObj.GetComponentsInChildren<Rigidbody>())
+            rb.isKinematic = true;
+
+        foreach (var col in netObj.GetComponentsInChildren<Collider>())
+            col.enabled = false;
     }
 }

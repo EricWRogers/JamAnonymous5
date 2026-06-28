@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 6785001833674771649}
   - component: {fileID: 4732818955073776679}
   - component: {fileID: -6497654173888574873}
+  - component: {fileID: 5507836869100427237}
   m_Layer: 9
   m_Name: Knife
   m_TagString: Untagged
@@ -183,8 +184,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Item
   ShowTopMostFoldoutHeaderGroup: 1
-  itemName: Item
-  itemType: 0
+  itemName: Knife
+  itemType: 1
 --- !u!114 &-6497654173888574873
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -231,3 +232,15 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &5507836869100427237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4268257227059925963}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a7af1ae1c6d47f58cb10d7c62c53c51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KnifeTool
