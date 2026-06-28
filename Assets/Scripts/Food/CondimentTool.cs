@@ -19,6 +19,10 @@ public class CondimentTool : NetworkBehaviour
     [Min(0f)]
     [SerializeField] private float spacingMultiplier = 0.15f;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip squirtSound;
+    [SerializeField, Range(0f, 1f)] private float squirtSoundVolume = 1f;
+
     public FoodIngredientDefinition CondimentIngredient => condimentIngredient;
 
     private void Reset()
@@ -86,11 +90,20 @@ public class CondimentTool : NetworkBehaviour
 
         if (assemblyBase.ServerTrySnapIngredientWithLocalOffsets(condiment, localYRotation, spacingMultiplier, localPositionOffset))
         {
+            PlaySquirtSoundClientRpc(assemblyBase.transform.position);
             return true;
         }
 
         DestroyCondimentObject(condimentObject, condimentNetworkObject);
         return false;
+    }
+
+    [ClientRpc]
+    private void PlaySquirtSoundClientRpc(Vector3 position)
+    {
+        if (squirtSound == null) return;
+
+        AudioSource.PlayClipAtPoint(squirtSound, position, squirtSoundVolume);
     }
 
     private GameObject GetCondimentPrefab(FoodAssemblyBase assemblyBase)

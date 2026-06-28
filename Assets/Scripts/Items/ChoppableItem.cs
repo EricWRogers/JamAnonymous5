@@ -33,6 +33,10 @@ public class ChoppableItem : NetworkBehaviour, IInteractable
     [Header("Ingredient State")]
     [SerializeField] private FoodPrepState choppedPrepState = FoodPrepState.Chopped;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip chopSound;
+    [SerializeField, Range(0f, 1f)] private float chopSoundVolume = 1f;
+
     private FoodIngredient foodIngredient;
     private GameObject wholeVisualInstance;
     private GameObject choppedVisualInstance;
@@ -84,6 +88,15 @@ public class ChoppableItem : NetworkBehaviour, IInteractable
 
         isChopped.Value = true;
         ApplyChoppedState(true);
+        PlayChopSoundClientRpc(transform.position);
+    }
+
+    [ClientRpc]
+    private void PlayChopSoundClientRpc(Vector3 position)
+    {
+        if (chopSound == null) return;
+
+        AudioSource.PlayClipAtPoint(chopSound, position, chopSoundVolume);
     }
 
     private void OnChoppedChanged(bool previousValue, bool newValue)

@@ -248,3 +248,5 @@ MonoBehaviour:
   condimentPrefabOverride: {fileID: 0}
   burgerCondimentPrefab: {fileID: 2530836116558888188, guid: ae1e12e487e497ed9a58a33761669d2d, type: 3}
   hotdogCondimentPrefab: {fileID: 5374198899473544682, guid: c44acc2dd93deb18ebc2bafc4325c184, type: 3}
+  squirtSound: {fileID: 8300000, guid: 8aea1431c4e2315489e59460ad05c548, type: 3}
+  squirtSoundVolume: 1

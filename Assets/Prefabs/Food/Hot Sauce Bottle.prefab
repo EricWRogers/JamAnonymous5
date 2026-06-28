@@ -250,3 +250,5 @@ MonoBehaviour:
   burgerCondimentPrefab: {fileID: 3674218944309126041, guid: 71fb9019f88c4e678b5d3066d07e5525, type: 3}
   hotdogCondimentPrefab: {fileID: 3740763978120521288, guid: 67bfb04ee34747c7a77eeabac13bf94d, type: 3}
   randomLocalYRotationRange: {x: 0, y: 360}
+  squirtSound: {fileID: 8300000, guid: 8aea1431c4e2315489e59460ad05c548, type: 3}
+  squirtSoundVolume: 1

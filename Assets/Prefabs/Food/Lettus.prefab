@@ -271,3 +271,5 @@ MonoBehaviour:
   choppedVisualPrefab: {fileID: 0}
   visualParent: {fileID: 0}
   choppedPrepState: 2
+  chopSound: {fileID: 8300000, guid: 0d9adc8d84026ed4f95dd64abc9e0f26, type: 3}
+  chopSoundVolume: 1
