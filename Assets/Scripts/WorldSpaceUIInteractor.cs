@@ -3,38 +3,61 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using UnityEngine.InputSystem;
+using Unity.Netcode;
 
 public class WorldSpaceUIInteractor : MonoBehaviour
 {
     public float interactDistance = 3f;
+
     private InputSystem_Actions inputs;
+    private NetworkObject networkObject;
+    private readonly List<RaycastResult> raycastResults = new List<RaycastResult>();
 
     void Awake()
     {
         inputs = new InputSystem_Actions();
+        networkObject = GetComponentInParent<NetworkObject>();
     }
+
     void Update()
     {
-        if (!Attack.attack.triggered) return;
+        if (networkObject != null && networkObject.IsSpawned && !networkObject.IsOwner) return;
+        if (!inputs.Player.Attack.WasPressedThisFrame()) return;
+        if (EventSystem.current == null) return;
 
         PointerEventData pointerData = new PointerEventData(EventSystem.current)
         {
-            position = new Vector2(Screen.width / 2, Screen.height / 2)
+            position = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f)
         };
 
-        var results = new List<RaycastResult>();
-        EventSystem.current.RaycastAll(pointerData, results);
+        raycastResults.Clear();
+        EventSystem.current.RaycastAll(pointerData, raycastResults);
 
-        foreach (var result in results)
+        foreach (var result in raycastResults)
         {
             if (Vector3.Distance(transform.position, result.worldPosition) > interactDistance) continue;
 
-            var button = result.gameObject.GetComponent<Button>();
-            if (button != null)
+            var button = result.gameObject.GetComponentInParent<Button>();
+            if (button != null && button.IsInteractable())
             {
                 button.onClick.Invoke();
                 break;
             }
         }
+    }
+
+    void OnEnable()
+    {
+        inputs?.Player.Enable();
+    }
+
+    void OnDisable()
+    {
+        inputs?.Player.Disable();
+    }
+
+    void OnDestroy()
+    {
+        inputs?.Dispose();
     }
 }
