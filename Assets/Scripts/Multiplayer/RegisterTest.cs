@@ -10,11 +10,12 @@ public class RegisterTest : NetworkBehaviour
     public float queueSpacing = 1.5f;
     public bool playerIsPresent;
 
-    private readonly List<CustomerAI> queue = new();
+    public readonly List<CustomerAI> queue = new();
     public bool orderSubmitted = false;
     public bool OrderSubmitted => orderSubmitted;
     public ulong CurrentCustomerId => queue.Count > 0 ? queue[0].customerId.Value : 0;
 
+    
     void Awake() 
     {
         Instance = this;
@@ -47,6 +48,8 @@ public class RegisterTest : NetworkBehaviour
     public void NotifyOrderSubmittedServerRpc()
     {
         orderSubmitted = true;
+        ulong customerId = queue.Count > 0 ? queue[0].customerId.Value : 0;
+        GameManager.Instance.SubmitOrderServerRpc(customerId);
     }
 
     

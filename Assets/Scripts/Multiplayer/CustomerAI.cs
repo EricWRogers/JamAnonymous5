@@ -174,6 +174,13 @@ public class CustomerAI : NetworkBehaviour
                     SetState(CustomerState.InQueue);
                 break;
 
+            case CustomerState.InQueue:
+                if (ArrivedAt(agent.destination) && 
+                    RegisterTest.Instance.queue.Count > 0 && 
+                    RegisterTest.Instance.queue[0] == this)
+                    SetState(CustomerState.AtCounter);
+                break;
+
             case CustomerState.Yapping:
                 if (RegisterTest.Instance.OrderSubmitted)
                 {
