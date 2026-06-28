@@ -21,3 +21,4 @@ MonoBehaviour:
   defaultPrepState: 0
   ingredientPrefab: {fileID: 8761758195408443829, guid: e3ead914e98b2493791bfd0c76b7ab33, type: 3}
   icon: {fileID: 0}
+  substituteFor: {fileID: 11400000, guid: 09da2ffbadb6753af90c66573a84cbf4, type: 2}
