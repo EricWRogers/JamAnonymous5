@@ -25,7 +25,7 @@ public class OrderScreen : MonoBehaviour
             OrderManager.Instance.OrdersUpdated -= Refresh;
     }
 
-    void Refresh()
+   void Refresh()
     {
         ulong id = OrderManager.Instance.GetSlotId(slot);
         if (id == 0)
@@ -37,6 +37,6 @@ public class OrderScreen : MonoBehaviour
 
         customerIdText.text = $"#{id}";
         ingredientsText.text = OrderManager.Instance.GetSlotIngredients(slot)
-            .Replace(",", "\n");
+            .Replace(",", " | ");
     }
 }
