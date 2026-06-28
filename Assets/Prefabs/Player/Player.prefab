@@ -686,6 +686,13 @@ MonoBehaviour:
     m_Bits: 449
   groundCheckDistance: 2
   groundCheck: {fileID: 3989676037131226213}
+  footstepAudioSource: {fileID: 0}
+  footstepClips: []
+  footstepWalkInterval: 0.42
+  footstepSprintInterval: 0.28
+  footstepMinSpeed: 0.2
+  footstepVolume: 0.65
+  footstepPitchVariance: 0.08
 --- !u!114 &4023329016474694314
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -805,7 +812,35 @@ MonoBehaviour:
   NetworkAnimatorExpanded: 0
   AuthorityMode: 0
   m_Animator: {fileID: 6225081333855752583}
-  TransitionStateInfoList: []
+  TransitionStateInfoList:
+  - IsCrossFadeExit: 0
+    Layer: 1
+    OriginatingState: -542986255
+    DestinationState: 1164024799
+    TransitionDuration: 0.25
+    TriggerNameHash: -2128936681
+    TransitionIndex: 0
+  - IsCrossFadeExit: 0
+    Layer: 1
+    OriginatingState: -542986255
+    DestinationState: -414582212
+    TransitionDuration: 0.25
+    TriggerNameHash: -165924479
+    TransitionIndex: 1
+  - IsCrossFadeExit: 0
+    Layer: 1
+    OriginatingState: -542986255
+    DestinationState: 1949084764
+    TransitionDuration: 0.25
+    TriggerNameHash: 1863671867
+    TransitionIndex: 2
+  - IsCrossFadeExit: 0
+    Layer: 1
+    OriginatingState: -542986255
+    DestinationState: 689250390
+    TransitionDuration: 0.25
+    TriggerNameHash: 403853485
+    TransitionIndex: 3
   AnimatorParameterEntries:
     ParameterEntries:
     - name: Speed
@@ -816,6 +851,22 @@ MonoBehaviour:
       NameHash: 1749078233
       Synchronize: 1
       ParameterType: 4
+    - name: Emote0
+      NameHash: -2128936681
+      Synchronize: 1
+      ParameterType: 9
+    - name: Emote1
+      NameHash: -165924479
+      Synchronize: 1
+      ParameterType: 9
+    - name: Emote2
+      NameHash: 1863671867
+      Synchronize: 1
+      ParameterType: 9
+    - name: Emote3
+      NameHash: 403853485
+      Synchronize: 1
+      ParameterType: 9
   AnimatorParametersExpanded: 0
 --- !u!136 &6628916765093256872
 CapsuleCollider:
@@ -864,7 +915,7 @@ AudioSource:
   MinDistance: 1
   MaxDistance: 20
   Pan2D: 0
-  rolloffMode: 0
+  rolloffMode: 1
   BypassEffects: 0
   BypassListenerEffects: 0
   BypassReverbZones: 0
@@ -872,23 +923,59 @@ AudioSource:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
+      time: 0.07409744
+      value: 0.9955673
+      inSlope: -0.3768067
+      outSlope: -0.3768067
       tangentMode: 0
       weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
+      inWeight: 0
+      outWeight: 1
+    - serializedVersion: 3
+      time: 0.1481987
+      value: 0.602005
+      inSlope: -1.8572166
+      outSlope: -1.8572166
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 1
+    - serializedVersion: 3
+      time: 0.1819336
+      value: 0.31652832
+      inSlope: -1.2504979
+      outSlope: -1.2504979
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.3819336
+      value: 0.19152832
+      inSlope: -0.31262448
+      outSlope: -0.31262448
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.8
+      value: 0.0625
+      inSlope: -0.07815612
+      outSlope: -0.07815612
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
     - serializedVersion: 3
       time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
+      value: 0.05
+      inSlope: -0.05001994
+      outSlope: -0.05001994
       tangentMode: 0
       weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
+      inWeight: 0
+      outWeight: 0
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
