@@ -50,6 +50,8 @@ public class CustomerAI : NetworkBehaviour
 
     private Item deliveredTray;
 
+    public Renderer customerRenderer;
+
     [Header("Food Scoring")]
     public int flatRatePerIngredient = 2;
 
@@ -63,6 +65,12 @@ public class CustomerAI : NetworkBehaviour
         GenerateOrder();
 
         RegisterTest.Instance.JoinQueue(this);
+
+        Color randomColor = Random.ColorHSV(0f, 1f, 0.5f, 1f, 0.7f, 1f);
+        customerRenderer.material.color = randomColor;
+        SetColorClientRpc(randomColor.r, randomColor.g, randomColor.b);
+
+
         SetState(CustomerState.WalkingToRegister);
     }
 
@@ -386,5 +394,13 @@ public class CustomerAI : NetworkBehaviour
     void ShowScoreClientRpc(float score, float maxScore)
     {
         orderUI.ShowScore(score, maxScore);
+    }
+
+
+    [ClientRpc]
+    void SetColorClientRpc(float r, float g, float b)
+    {
+        if (IsHost) return;
+        customerRenderer.material.color = new Color(r, g, b);
     }
 }
