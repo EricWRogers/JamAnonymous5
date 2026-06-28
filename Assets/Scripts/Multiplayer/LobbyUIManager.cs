@@ -84,4 +84,9 @@ public class LobbyUIManager : NetworkBehaviour
 
         NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
     }
+
+    public void LeaveLobby()
+    {
+        NetworkSessionMenu.ReturnToMainMenu();
+    }
 }
