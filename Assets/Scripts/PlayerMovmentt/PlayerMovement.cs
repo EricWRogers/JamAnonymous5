@@ -31,7 +31,7 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField] private float footstepWalkInterval = 0.42f;
     [SerializeField] private float footstepSprintInterval = 0.28f;
     [SerializeField] private float footstepMinSpeed = 0.2f;
-    [SerializeField, Range(0f, 1f)] private float footstepVolume = 0.65f;
+    [SerializeField, Range(0f, 1f)] private float footstepVolume = 1f;
     [SerializeField, Range(0f, 0.25f)] private float footstepPitchVariance = 0.08f;
 
     private Rigidbody rb;

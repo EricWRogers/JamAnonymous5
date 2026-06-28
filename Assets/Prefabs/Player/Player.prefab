@@ -687,11 +687,14 @@ MonoBehaviour:
   groundCheckDistance: 2
   groundCheck: {fileID: 3989676037131226213}
   footstepAudioSource: {fileID: 0}
-  footstepClips: []
+  footstepClips:
+  - {fileID: 8300000, guid: 7f8877240dc032a49830c144f5230bd0, type: 3}
+  - {fileID: 8300000, guid: e7997bed902d4c04387cdbe7c2454d53, type: 3}
+  - {fileID: 8300000, guid: dd807dea315225846919a5c7c2c6925c, type: 3}
   footstepWalkInterval: 0.42
   footstepSprintInterval: 0.28
   footstepMinSpeed: 0.2
-  footstepVolume: 0.65
+  footstepVolume: 0.701
   footstepPitchVariance: 0.08
 --- !u!114 &4023329016474694314
 MonoBehaviour:
