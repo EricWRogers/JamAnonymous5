@@ -10,6 +10,28 @@ public class CustomerOrderUI : MonoBehaviour
 
     private Coroutine yappingCoroutine;
 
+    private Camera mainCam;
+
+    [Header("Billboard")]
+    public Transform billboardTarget;
+
+    void Start()
+    {
+        mainCam = Camera.main;
+    }
+
+    void LateUpdate()
+    {
+        if (billboardTarget == null || mainCam == null) return;
+        billboardTarget.LookAt(billboardTarget.position + mainCam.transform.forward);
+    }
+
+    public void ShowScore(float score, float maxScore)
+    {
+        bubble.SetActive(true);
+        label.text = $"{score:F1} / {maxScore:F0}";
+    }
+
     public void StartYapping(List<FoodIngredientDefinition> ingredients)
     {
         var names = new List<string>();
