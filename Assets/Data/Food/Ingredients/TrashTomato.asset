@@ -13,12 +13,12 @@ MonoBehaviour:
   m_Name: TrashTomato
   m_EditorClassIdentifier: Assembly-CSharp::FoodIngredientDefinition
   ingredientName: Ingredient
-  quality: 0
+  quality: 1
   goodIngredientCost: 0
   canBeCooked: 0
   canBePrepared: 0
   defaultCookState: 0
-  defaultPrepState: 0
-  ingredientPrefab: {fileID: 0}
+  defaultPrepState: 3
+  ingredientPrefab: {fileID: 3367348011408397418, guid: 81a0a12f66965935cbe5368c4649eb90, type: 3}
   icon: {fileID: 0}
   trashEquivalent: {fileID: 0}
