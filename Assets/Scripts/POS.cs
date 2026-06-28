@@ -76,4 +76,12 @@ public class POS : NetworkBehaviour
         startShift.SetActive(showStart);
         ingredientSelect.SetActive(showIngredient);
     }
+
+    public void ResetToStartShift()
+    {
+        ingredientsForOrder.Clear();
+        orderText = "";
+        text.text = orderText;
+        UpdatePanelClientRpc(true, false);
+    }
 }

@@ -1625,7 +1625,7 @@ Transform:
   m_GameObject: {fileID: 269812378}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 0, z: -17.11}
+  m_LocalPosition: {x: -66, y: 0, z: -28.74}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2100,7 +2100,7 @@ MonoBehaviour:
   customerPrefab: {fileID: 5631027344702625118, guid: 3e92e8e8f98a6774aa4769adaf165a67, type: 3}
   spawnPoint: {fileID: 269812379}
   exitPoint: {fileID: 378143698}
-  spawnInterval: 60
+  spawnInterval: 30
 --- !u!114 &324645030
 MonoBehaviour:
   m_ObjectHideFlags: 0
