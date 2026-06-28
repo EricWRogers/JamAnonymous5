@@ -8007,7 +8007,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3412069477477298671, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: itemCost
-      value: 8
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 4356748814548654850, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -8059,7 +8059,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6236242554539971462, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: itemCost
-      value: 0
+      value: 5
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
