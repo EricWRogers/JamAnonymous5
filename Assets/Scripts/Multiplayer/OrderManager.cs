@@ -76,6 +76,24 @@ public class OrderManager : NetworkBehaviour
         }
     }
 
+    public void ClearAllOrders()
+    {
+        if (!IsServer) return;
+        ClearAllOrdersClientRpc();
+    }
+
+    [ClientRpc]
+    void ClearAllOrdersClientRpc()
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            slotIds[i] = 0;
+            slotIngredients[i] = "";
+        }
+        backlog.Clear();
+        OrdersUpdated?.Invoke();
+    }
+
     public ulong GetSlotId(int slot) => slotIds[slot];
     public string GetSlotIngredients(int slot) => slotIngredients[slot];
 }
