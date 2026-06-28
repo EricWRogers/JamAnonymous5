@@ -127,6 +127,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1188125138084593617, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
+      propertyPath: itemCost
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1719084028971815104, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
+      propertyPath: itemCost
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 5141209407419731282, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 1214976403
@@ -178,6 +186,10 @@ PrefabInstance:
     - target: {fileID: 7137443233997068667, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 1662871683
+      objectReference: {fileID: 0}
+    - target: {fileID: 8296773489792301950, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
+      propertyPath: itemCost
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8533843735119920699, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
       propertyPath: m_Name
@@ -2233,7 +2245,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpawnProp
   itemPrefab: {fileID: 822969488720117844, guid: dcc8dda184f4404388d7a90c244d0d9e, type: 3}
   itemSpawnPoint: {fileID: 351874605}
-  itemCost: 5
+  itemCost: 3
   restockDelay: 0.25
   logDebugMessages: 1
 --- !u!114 &351874608
@@ -4277,7 +4289,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpawnProp
   itemPrefab: {fileID: 822969488720117844, guid: dcc8dda184f4404388d7a90c244d0d9e, type: 3}
   itemSpawnPoint: {fileID: 716460615}
-  itemCost: 5
+  itemCost: 3
   restockDelay: 0.25
   logDebugMessages: 1
 --- !u!114 &716460618
@@ -5162,7 +5174,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpawnProp
   itemPrefab: {fileID: 1987677979384464851, guid: 9430958da496b0a1d9e209ddc0b1b221, type: 3}
   itemSpawnPoint: {fileID: 875376190}
-  itemCost: 5
+  itemCost: 3
   restockDelay: 0.25
   logDebugMessages: 1
 --- !u!114 &875376193
@@ -6700,6 +6712,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1188125138084593617, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
+      propertyPath: itemCost
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1719084028971815104, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
+      propertyPath: itemCost
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 5141209407419731282, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 1468024943
@@ -6751,6 +6771,10 @@ PrefabInstance:
     - target: {fileID: 7137443233997068667, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 1435502494
+      objectReference: {fileID: 0}
+    - target: {fileID: 8296773489792301950, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
+      propertyPath: itemCost
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8533843735119920699, guid: 4093c2db1598aadc387fa366c4638678, type: 3}
       propertyPath: m_Name
@@ -7963,7 +7987,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2441432956535193463, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: itemCost
-      value: 5
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2967197708321126538, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: GlobalObjectIdHash
@@ -7971,7 +7995,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3134676700274166665, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: itemCost
-      value: 5
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3136719283802224295, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: GlobalObjectIdHash
@@ -7980,6 +8004,10 @@ PrefabInstance:
     - target: {fileID: 3335361467896884124, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 2794589666
+      objectReference: {fileID: 0}
+    - target: {fileID: 3412069477477298671, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
+      propertyPath: itemCost
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 4356748814548654850, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -8028,6 +8056,10 @@ PrefabInstance:
     - target: {fileID: 5113000441203926752, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
       propertyPath: m_Name
       value: ItemShelf
+      objectReference: {fileID: 0}
+    - target: {fileID: 6236242554539971462, guid: a8e25c667d7b9a1f1868a04924d8f6f0, type: 3}
+      propertyPath: itemCost
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -10491,7 +10523,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpawnProp
   itemPrefab: {fileID: 1987677979384464851, guid: 9430958da496b0a1d9e209ddc0b1b221, type: 3}
   itemSpawnPoint: {fileID: 2056836001}
-  itemCost: 5
+  itemCost: 3
   restockDelay: 0.25
   logDebugMessages: 1
 --- !u!114 &2056836004
