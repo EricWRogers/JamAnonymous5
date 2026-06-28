@@ -21,6 +21,7 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
     [SerializeField] private Vector3 snappedLocalEulerAngles;
 
     private readonly List<FoodIngredient> snappedIngredients = new();
+    private readonly List<Quaternion> snappedIngredientLocalRotations = new();
     private readonly List<FoodIngredient> assembledIngredients = new();
     private FoodIngredient baseIngredient;
     private ServingTray currentTray;
@@ -147,18 +148,31 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 
     public bool ServerTrySnapIngredient(FoodIngredient ingredient)
     {
+        return ServerTrySnapIngredient(ingredient, Quaternion.Euler(snappedLocalEulerAngles));
+    }
+
+    public bool ServerTrySnapIngredientWithLocalYRotationOffset(FoodIngredient ingredient, float localYRotationOffset)
+    {
+        Vector3 localEulerAngles = snappedLocalEulerAngles;
+        localEulerAngles.y += localYRotationOffset;
+
+        return ServerTrySnapIngredient(ingredient, Quaternion.Euler(localEulerAngles));
+    }
+
+    private bool ServerTrySnapIngredient(FoodIngredient ingredient, Quaternion localRotation)
+    {
         if (!IsServerActive()) return false;
         if (!CanSnapIngredient(ingredient, allowHeld: false, out _))
         {
             return false;
         }
 
-        snappedIngredients.RemoveAll(snappedIngredient => snappedIngredient == null);
+        RemoveMissingSnappedIngredients();
 
         Vector3 localPosition = GetLocalSnapPosition(snappedIngredients.Count);
-        Quaternion localRotation = Quaternion.Euler(snappedLocalEulerAngles);
 
         snappedIngredients.Add(ingredient);
+        snappedIngredientLocalRotations.Add(localRotation);
         ApplySnappedPose(ingredient, localPosition, localRotation);
 
         NetworkObject ingredientNetworkObject = ingredient.GetComponent<NetworkObject>();
@@ -177,13 +191,12 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
     public void RefreshSnappedIngredientLayout()
     {
         TrackSnappedIngredientsFromChildren();
-        snappedIngredients.RemoveAll(snappedIngredient => snappedIngredient == null);
-
-        Quaternion localRotation = Quaternion.Euler(snappedLocalEulerAngles);
+        RemoveMissingSnappedIngredients();
+        EnsureSnappedIngredientLocalRotations();
 
         for (int i = 0; i < snappedIngredients.Count; i++)
         {
-            ApplySnappedPose(snappedIngredients[i], GetLocalSnapPosition(i), localRotation);
+            ApplySnappedPose(snappedIngredients[i], GetLocalSnapPosition(i), snappedIngredientLocalRotations[i]);
         }
     }
 
@@ -266,7 +279,7 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             assembledIngredients.Add(baseIngredient);
         }
 
-        snappedIngredients.RemoveAll(ingredient => ingredient == null);
+        RemoveMissingSnappedIngredients();
 
         for (int i = 0; i < snappedIngredients.Count; i++)
         {
@@ -288,7 +301,7 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             return true;
         }
 
-        snappedIngredients.RemoveAll(ingredient => ingredient == null);
+        RemoveMissingSnappedIngredients();
 
         for (int i = 0; i < snappedIngredients.Count; i++)
         {
@@ -365,7 +378,7 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         }
 
         FoodIngredient ingredient = ingredientNetworkObject.GetComponent<FoodIngredient>();
-        TrackSnappedIngredient(ingredient);
+        TrackSnappedIngredient(ingredient, localRotation);
         ApplySnappedPose(ingredient, localPosition, localRotation);
     }
 
@@ -395,7 +408,7 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             }
 
             FoodIngredient ingredient = ingredientNetworkObject.GetComponent<FoodIngredient>();
-            TrackSnappedIngredient(ingredient);
+            TrackSnappedIngredient(ingredient, localRotation);
             ApplySnappedPose(ingredient, localPosition, localRotation);
             yield break;
         }
@@ -506,10 +519,26 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
     private void TrackSnappedIngredient(FoodIngredient ingredient)
     {
         if (ingredient == null) return;
+
+        TrackSnappedIngredient(ingredient, ingredient.transform.localRotation);
+    }
+
+    private void TrackSnappedIngredient(FoodIngredient ingredient, Quaternion localRotation)
+    {
+        if (ingredient == null) return;
         if (ingredient == baseIngredient) return;
-        if (snappedIngredients.Contains(ingredient)) return;
+
+        int existingIndex = snappedIngredients.IndexOf(ingredient);
+
+        if (existingIndex >= 0)
+        {
+            EnsureSnappedIngredientLocalRotations();
+            snappedIngredientLocalRotations[existingIndex] = localRotation;
+            return;
+        }
 
         snappedIngredients.Add(ingredient);
+        snappedIngredientLocalRotations.Add(localRotation);
     }
 
     private void TrackSnappedIngredientsFromChildren()
@@ -520,6 +549,44 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         for (int i = 0; i < childIngredients.Length; i++)
         {
             TrackSnappedIngredient(childIngredients[i]);
+        }
+    }
+
+    private void RemoveMissingSnappedIngredients()
+    {
+        for (int i = snappedIngredients.Count - 1; i >= 0; i--)
+        {
+            if (snappedIngredients[i] != null)
+            {
+                continue;
+            }
+
+            snappedIngredients.RemoveAt(i);
+
+            if (i < snappedIngredientLocalRotations.Count)
+            {
+                snappedIngredientLocalRotations.RemoveAt(i);
+            }
+        }
+
+        while (snappedIngredientLocalRotations.Count > snappedIngredients.Count)
+        {
+            snappedIngredientLocalRotations.RemoveAt(snappedIngredientLocalRotations.Count - 1);
+        }
+    }
+
+    private void EnsureSnappedIngredientLocalRotations()
+    {
+        while (snappedIngredientLocalRotations.Count < snappedIngredients.Count)
+        {
+            int index = snappedIngredientLocalRotations.Count;
+            FoodIngredient ingredient = snappedIngredients[index];
+
+            Quaternion localRotation = ingredient != null
+                ? ingredient.transform.localRotation
+                : Quaternion.Euler(snappedLocalEulerAngles);
+
+            snappedIngredientLocalRotations.Add(localRotation);
         }
     }
 
