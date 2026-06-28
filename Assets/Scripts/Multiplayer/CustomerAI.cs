@@ -44,6 +44,12 @@ public class CustomerAI : NetworkBehaviour
 
     public float eatingDuration = 10f;
 
+    
+    [Header("Food Placement")]
+    public Vector3 foodOffset = new Vector3(0, 0, 0.5f);
+
+    private Item deliveredTray;
+
     public override void OnNetworkSpawn()
     {
         if (!IsHost) return;
@@ -135,8 +141,22 @@ public class CustomerAI : NetworkBehaviour
 
             case CustomerState.Leaving:
                 if (claimedSeat != null) claimedSeat.Vacate();
-                orderUI.Hide();
+                    orderUI.Hide();
                 UpdateOrderUIClientRpc((int)CustomerState.Leaving);
+                
+                if (deliveredTray != null && deliveredTray.NetworkObject != null)
+                {
+                    NetworkObject[] childNetObjs = deliveredTray.GetComponentsInChildren<NetworkObject>();
+                    foreach (NetworkObject child in childNetObjs)
+                    {
+                        if (child != deliveredTray.NetworkObject && child.IsSpawned)
+                            child.Despawn();
+                    }
+
+                    deliveredTray.NetworkObject.Despawn();
+                    deliveredTray = null;
+                }
+
                 agent.SetDestination(CustomerSpawner.Instance.exitPoint.position);
                 StartCoroutine(DestroyWhenArrived());
                 break;
@@ -219,9 +239,10 @@ public class CustomerAI : NetworkBehaviour
 
     public void DeliverFood()
     {
-        if (State != CustomerState.WaitingForFood) return;
-        GameManager.Instance.DeliverOrderServerRpc(customerId.Value);
+    if (State != CustomerState.WaitingForFood) return;
+    SetState(CustomerState.Eating);
     }
+
 
     [ClientRpc]
     void UpdateOrderUIClientRpc(int stateIndex)
@@ -245,5 +266,16 @@ public class CustomerAI : NetworkBehaviour
                 orderUI.Hide();
                 break;
         }
+    }
+
+
+    public void ReceiveFood(Item tray)
+    {
+        deliveredTray = tray;
+        
+        Vector3 targetPos = transform.position + transform.TransformDirection(foodOffset);
+        tray.ServerStopHolding(targetPos, transform.rotation);
+
+        SetState(CustomerState.Eating);
     }
 }
