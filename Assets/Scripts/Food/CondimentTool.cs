@@ -13,6 +13,9 @@ public class CondimentTool : NetworkBehaviour
     [SerializeField] private GameObject burgerCondimentPrefab;
     [SerializeField] private GameObject hotdogCondimentPrefab;
 
+    [Header("Placement")]
+    [SerializeField] private Vector2 randomLocalYRotationRange = new Vector2(0f, 360f);
+
     public FoodIngredientDefinition CondimentIngredient => condimentIngredient;
 
     private void Reset()
@@ -73,7 +76,9 @@ public class CondimentTool : NetworkBehaviour
             condimentNetworkObject.Spawn();
         }
 
-        if (assemblyBase.ServerTrySnapIngredient(condiment))
+        float randomLocalYRotation = GetRandomLocalYRotation();
+
+        if (assemblyBase.ServerTrySnapIngredientWithLocalYRotationOffset(condiment, randomLocalYRotation))
         {
             return true;
         }
@@ -104,6 +109,24 @@ public class CondimentTool : NetworkBehaviour
         }
 
         return condimentIngredient != null ? condimentIngredient.IngredientPrefab : null;
+    }
+
+    private float GetRandomLocalYRotation()
+    {
+        float min = randomLocalYRotationRange.x;
+        float max = randomLocalYRotationRange.y;
+
+        if (min > max)
+        {
+            (min, max) = (max, min);
+        }
+
+        if (Mathf.Approximately(min, max))
+        {
+            return min;
+        }
+
+        return Random.Range(min, max);
     }
 
     private void DestroyCondimentObject(GameObject condimentObject, NetworkObject condimentNetworkObject)
