@@ -3,7 +3,7 @@ using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
-
+using Unity.Netcode.Components;
 [System.Serializable]
 public class MealTemplate
 {
@@ -273,13 +273,18 @@ public class CustomerAI : NetworkBehaviour
     {
         deliveredTray = tray;
 
-        Vector3 targetPos = transform.position + transform.TransformDirection(foodOffset);
-        tray.ServerStopHolding(targetPos, transform.rotation);
+        tray.NetworkObject.RemoveOwnership();
 
+        tray.ServerStopHolding(transform.position + transform.TransformDirection(foodOffset), transform.rotation);
         tray.NetworkObject.TrySetParent(transform);
 
-        LockFoodObjectClientRpc(tray.NetworkObject.NetworkObjectId);
+        foreach (var rb in tray.GetComponentsInChildren<Rigidbody>())
+            rb.isKinematic = true;
 
+        foreach (var col in tray.GetComponentsInChildren<Collider>())
+            col.enabled = false;
+
+        LockFoodObjectClientRpc(tray.NetworkObject.NetworkObjectId);
         SetState(CustomerState.Eating);
     }
 
@@ -288,11 +293,12 @@ public class CustomerAI : NetworkBehaviour
     {
         if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(trayNetId, out NetworkObject netObj))
             return;
-        //This is kinda jank but we need to ensure that the food cant be collided with, it wont fall and many other such issues.
+
         foreach (var rb in netObj.GetComponentsInChildren<Rigidbody>())
             rb.isKinematic = true;
 
         foreach (var col in netObj.GetComponentsInChildren<Collider>())
             col.enabled = false;
+
     }
 }

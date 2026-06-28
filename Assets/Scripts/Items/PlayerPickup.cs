@@ -417,6 +417,10 @@ public class PlayerPickup : NetworkBehaviour
     [ServerRpc]
     private void RequestDeliverServerRpc(ulong customerNetId)
     {
+
+        if (heldItem == null)
+            TryResolveHeldItem();
+
         if (heldItem == null || heldItem.itemType != Item.ItemType.Utensil)
         {
             Debug.LogWarning("[Server] Player is not holding a tray.");
