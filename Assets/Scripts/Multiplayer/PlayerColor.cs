@@ -6,6 +6,6 @@ public class PlayerColor : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         var color = GameManager.Instance.GetColor(OwnerClientId);
-        GetComponent<Renderer>().material.color = color;
+        GetComponent<SkinnedMeshRenderer>().material.color = color;
     }
 }

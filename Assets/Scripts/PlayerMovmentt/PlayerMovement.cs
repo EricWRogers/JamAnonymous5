@@ -27,6 +27,7 @@ public class PlayerMovement : NetworkBehaviour
     private bool isGrounded;
     private float coyoteTimer;
     private Vector2 moveInput;
+    private Animator animator;
 
     void Awake()
     {
@@ -35,6 +36,8 @@ public class PlayerMovement : NetworkBehaviour
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         inputs = new InputSystem_Actions();
+
+        TryGetComponent<Animator>(out animator);
     }
 
     void OnEnable()
@@ -61,8 +64,13 @@ public class PlayerMovement : NetworkBehaviour
 
     void Update()
     {
-        if (!IsOwner) return;
 
+        Debug.DrawRay(transform.position, Vector3.down * groundCheckDistance,
+        isGrounded ? Color.green : Color.red);
+        Debug.Log($"Grounded: {CheckGrounded()}");
+        
+        if (!IsOwner) return;
+        
         moveInput = inputs.Player.Move.ReadValue<Vector2>();
 
         isGrounded = CheckGrounded();
@@ -71,6 +79,16 @@ public class PlayerMovement : NetworkBehaviour
             coyoteTimer = coyoteTime;
         else
             coyoteTimer -= Time.deltaTime;
+
+        if (animator != null)
+        {
+            Vector3 horiz = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            float speedForAnim = horiz.magnitude;
+            bool jumping = !isGrounded;
+
+            animator.SetFloat("Speed", speedForAnim);
+            animator.SetBool("IsJumping", jumping);
+        }
     }
 
     void FixedUpdate()
