@@ -7,6 +7,7 @@ public class PlayerInteraction : NetworkBehaviour
     [SerializeField] private float interactRange = 3f;
     [SerializeField] private float sphereCastRadius = 0.25f;
     [SerializeField] private LayerMask interactLayers = ~0;
+    [SerializeField, Min(4)] private int maxInteractionHits = 24;
     [SerializeField] private bool logDebugMessages = true;
     [SerializeField] private bool logHitDebugMessages = true;
 
@@ -16,10 +17,15 @@ public class PlayerInteraction : NetworkBehaviour
     private InputSystem_Actions inputs;
     private IHoldInteractable currentHoldInteractable;
     private float holdInteractTimer;
+    private RaycastHit[] raycastHits;
+    private RaycastHit[] sphereCastHits;
 
     private void Awake()
     {
         inputs = new InputSystem_Actions();
+        int hitBufferSize = Mathf.Max(4, maxInteractionHits);
+        raycastHits = new RaycastHit[hitBufferSize];
+        sphereCastHits = new RaycastHit[hitBufferSize];
 
         if (playerCamera == null && TryGetComponent(out PlayerPickup pickup))
         {
@@ -115,21 +121,49 @@ public class PlayerInteraction : NetworkBehaviour
     {
         closestInteractable = null;
         float closestDistance = float.MaxValue;
+        float closestBlockingDistance = float.MaxValue;
         bool hitAnything = false;
 
+        EnsureHitBuffers();
+
+        int rayHitCount = Physics.RaycastNonAlloc(
+            ray,
+            raycastHits,
+            interactRange,
+            interactLayers,
+            QueryTriggerInteraction.Collide
+        );
+        int sphereHitCount = Physics.SphereCastNonAlloc(
+            ray,
+            sphereCastRadius,
+            sphereCastHits,
+            interactRange,
+            interactLayers,
+            QueryTriggerInteraction.Collide
+        );
+
         CheckHits(
-            Physics.RaycastAll(ray, interactRange, interactLayers, QueryTriggerInteraction.Collide),
+            raycastHits,
+            rayHitCount,
             ref closestInteractable,
             ref closestDistance,
+            ref closestBlockingDistance,
             ref hitAnything
         );
 
         CheckHits(
-            Physics.SphereCastAll(ray, sphereCastRadius, interactRange, interactLayers, QueryTriggerInteraction.Collide),
+            sphereCastHits,
+            sphereHitCount,
             ref closestInteractable,
             ref closestDistance,
+            ref closestBlockingDistance,
             ref hitAnything
         );
+
+        if (closestInteractable != null && closestDistance > closestBlockingDistance + 0.001f)
+        {
+            closestInteractable = null;
+        }
 
         if (closestInteractable == null && !hitAnything)
         {
@@ -139,24 +173,64 @@ public class PlayerInteraction : NetworkBehaviour
         return closestInteractable != null;
     }
 
-    private void CheckHits(RaycastHit[] hits, ref IInteractable closestInteractable, ref float closestDistance, ref bool hitAnything)
+    private void CheckHits(
+        RaycastHit[] hits,
+        int hitCount,
+        ref IInteractable closestInteractable,
+        ref float closestDistance,
+        ref float closestBlockingDistance,
+        ref bool hitAnything)
     {
-        for (int i = 0; i < hits.Length; i++)
+        for (int i = 0; i < hitCount; i++)
         {
-            hitAnything = true;
+            RaycastHit hit = hits[i];
 
-            if (hits[i].distance >= closestDistance) continue;
-
-            IInteractable interactable = GetInteractableFromHit(hits[i]);
-
-            if (interactable == null)
+            if (hit.collider == null || IsOwnPlayerCollider(hit.collider))
             {
-                LogHit(hits[i], "hit collider, but no IInteractable was found on it or its parents.");
                 continue;
             }
 
+            hitAnything = true;
+            IInteractable interactable = GetInteractableFromHit(hit);
+
+            if (interactable == null)
+            {
+                if (!hit.collider.isTrigger)
+                {
+                    closestBlockingDistance = Mathf.Min(closestBlockingDistance, hit.distance);
+                }
+
+                LogHit(hit, "hit collider, but no IInteractable was found on it or its parents.");
+                continue;
+            }
+
+            if (hit.distance >= closestDistance) continue;
+
             closestInteractable = interactable;
-            closestDistance = hits[i].distance;
+            closestDistance = hit.distance;
+        }
+    }
+
+    private bool IsOwnPlayerCollider(Collider candidate)
+    {
+        if (candidate == null) return false;
+
+        PlayerInteraction owner = candidate.GetComponentInParent<PlayerInteraction>();
+        return owner == this;
+    }
+
+    private void EnsureHitBuffers()
+    {
+        int requiredSize = Mathf.Max(4, maxInteractionHits);
+
+        if (raycastHits == null || raycastHits.Length != requiredSize)
+        {
+            raycastHits = new RaycastHit[requiredSize];
+        }
+
+        if (sphereCastHits == null || sphereCastHits.Length != requiredSize)
+        {
+            sphereCastHits = new RaycastHit[requiredSize];
         }
     }
 

@@ -19,5 +19,6 @@ MonoBehaviour:
   canBePrepared: 0
   defaultCookState: 0
   defaultPrepState: 0
+  stackBehavior: 1
   ingredientPrefab: {fileID: 3674218944309126041, guid: 71fb9019f88c4e678b5d3066d07e5525, type: 3}
   icon: {fileID: 0}

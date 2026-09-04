@@ -6,6 +6,13 @@ public enum IngredientQuality
     Trash
 }
 
+public enum FoodStackBehavior
+{
+    SolidLayer,
+    SurfaceOverlay,
+    Unstackable
+}
+
 [CreateAssetMenu(fileName = "New Food Ingredient", menuName = "Long Dong Silvers/Food/Ingredient")]
 public class FoodIngredientDefinition : ScriptableObject
 {
@@ -23,6 +30,10 @@ public class FoodIngredientDefinition : ScriptableObject
     [SerializeField] private FoodCookState defaultCookState = FoodCookState.None;
     [SerializeField] private FoodPrepState defaultPrepState = FoodPrepState.None;
 
+    [Header("Assembly")]
+    [Tooltip("Solid layers increase the food height. Surface overlays, such as sauces, sit on the current surface without increasing it.")]
+    [SerializeField] private FoodStackBehavior stackBehavior = FoodStackBehavior.SolidLayer;
+
     [Header("Prefab References")]
     [SerializeField] private GameObject ingredientPrefab;
     [SerializeField] private Sprite icon;
@@ -39,6 +50,7 @@ public class FoodIngredientDefinition : ScriptableObject
     public bool CanBePrepared => canBePrepared;
     public FoodCookState DefaultCookState => defaultCookState;
     public FoodPrepState DefaultPrepState => defaultPrepState;
+    public FoodStackBehavior StackBehavior => stackBehavior;
     public GameObject IngredientPrefab => ingredientPrefab;
     public Sprite Icon => icon;
 }

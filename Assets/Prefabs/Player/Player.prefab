@@ -796,6 +796,7 @@ MonoBehaviour:
   interactLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  maxInteractionHits: 24
   logDebugMessages: 1
   logHitDebugMessages: 1
   playerCamera: {fileID: 6435271251568795612}

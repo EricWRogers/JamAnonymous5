@@ -182,6 +182,22 @@ public class PlayerPickup : NetworkBehaviour
     {
         if (item == null) return false;
 
+        FoodIngredient ingredient = item.GetComponent<FoodIngredient>();
+
+        if (ingredient != null && ingredient.IsInFoodAssembly)
+        {
+            return false;
+        }
+
+        if (ingredient != null && ingredient.IsOnGrill)
+        {
+            Grill grill = ingredient.CurrentGrill;
+            if (grill == null || !grill.ServerTryRemoveItem(ingredient))
+            {
+                return false;
+            }
+        }
+
         FoodAssemblyBase foodAssembly = item.GetComponent<FoodAssemblyBase>();
 
         if (foodAssembly != null && foodAssembly.IsOnServingTray)
@@ -429,9 +445,15 @@ public class PlayerPickup : NetworkBehaviour
         if (heldItem == null)
             TryResolveHeldItem();
 
-        if (heldItem == null || heldItem.itemType != Item.ItemType.Utensil)
+        if (heldItem == null || !heldItem.TryGetComponent(out ServingTray servingTray))
         {
             Debug.LogWarning("[Server] Player is not holding a tray.");
+            return;
+        }
+
+        if (!servingTray.HasFood)
+        {
+            Debug.LogWarning("[Server] The serving tray has no assembled food.");
             return;
         }
 
@@ -444,6 +466,13 @@ public class PlayerPickup : NetworkBehaviour
         CustomerAI customer = netObj.GetComponent<CustomerAI>();
         if (customer == null) return;
         if (customer.State != CustomerAI.CustomerState.WaitingForFood) return;
+
+        float distance = Vector3.Distance(transform.position, customer.transform.position);
+        if (distance > pickupRange * 2f + 1f)
+        {
+            Debug.LogWarning($"[Server] Player is too far from customer to deliver. Distance: {distance:F2}");
+            return;
+        }
 
         // Stop holding and place in front of customer
         Item tray = heldItem;

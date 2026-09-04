@@ -14,6 +14,7 @@ public class ServingTray : NetworkBehaviour, IInteractable
     [SerializeField] private Transform foodSnapRoot;
     [SerializeField] private Vector3 foodLocalPosition = new Vector3(0f, 0.05f, 0f);
     [SerializeField] private Vector3 foodLocalEulerAngles;
+    [SerializeField] private float serverInteractRange = 4f;
 
     private readonly List<FoodIngredient> emptyIngredients = new();
     private FoodAssemblyBase carriedFood;
@@ -74,10 +75,15 @@ public class ServingTray : NetworkBehaviour, IInteractable
         TryApplyCarriedFood(pendingFoodNetworkObjectId);
     }
 
-    [ServerRpc(RequireOwnership = false)]
-    private void RequestUseServingTrayServerRpc(ServerRpcParams rpcParams = default)
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestUseServingTrayServerRpc(RpcParams rpcParams = default)
     {
         if (!TryGetSenderPickup(rpcParams.Receive.SenderClientId, out PlayerPickup playerPickup))
+        {
+            return;
+        }
+
+        if (Vector3.Distance(playerPickup.transform.position, transform.position) > Mathf.Max(0f, serverInteractRange))
         {
             return;
         }
@@ -330,11 +336,11 @@ public class ServingTray : NetworkBehaviour, IInteractable
 
         Rigidbody rb = food.GetComponent<Rigidbody>();
 
-        if (rb != null)
+        if (rb != null && !rb.isKinematic)
         {
-            rb.isKinematic = true;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
         }
 
         NetworkTransform networkTransform = food.GetComponent<NetworkTransform>();

@@ -344,7 +344,10 @@ public class CustomerAI : NetworkBehaviour
 
     float ScoreOrder(Item tray)
     {
-        var delivered = tray.GetComponentsInChildren<FoodIngredient>();
+        ServingTray servingTray = tray != null ? tray.GetComponent<ServingTray>() : null;
+        IReadOnlyList<FoodIngredient> delivered = servingTray != null
+            ? servingTray.GetCarriedIngredients()
+            : tray.GetComponentsInChildren<FoodIngredient>();
         var wanted = new List<FoodIngredientDefinition>(wantedIngredients);
 
         float score = 0f;

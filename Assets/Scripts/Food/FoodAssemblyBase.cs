@@ -1,8 +1,46 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
+using UnityEngine.Serialization;
+
+public struct FoodStackEntry : INetworkSerializable, IEquatable<FoodStackEntry>
+{
+    public ulong IngredientNetworkObjectId;
+    public Quaternion LocalRotation;
+    public Vector3 LocalPositionOffset;
+    public bool IsRemovable;
+
+    public FoodStackEntry(
+        ulong ingredientNetworkObjectId,
+        Quaternion localRotation,
+        Vector3 localPositionOffset,
+        bool isRemovable)
+    {
+        IngredientNetworkObjectId = ingredientNetworkObjectId;
+        LocalRotation = localRotation;
+        LocalPositionOffset = localPositionOffset;
+        IsRemovable = isRemovable;
+    }
+
+    public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+    {
+        serializer.SerializeValue(ref IngredientNetworkObjectId);
+        serializer.SerializeValue(ref LocalRotation);
+        serializer.SerializeValue(ref LocalPositionOffset);
+        serializer.SerializeValue(ref IsRemovable);
+    }
+
+    public bool Equals(FoodStackEntry other)
+    {
+        return IngredientNetworkObjectId == other.IngredientNetworkObjectId &&
+               LocalRotation.Equals(other.LocalRotation) &&
+               LocalPositionOffset.Equals(other.LocalPositionOffset) &&
+               IsRemovable == other.IsRemovable;
+    }
+}
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Item))]
@@ -15,17 +53,27 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 
     [Header("Snapping")]
     [SerializeField] private Transform snapRoot;
-    [SerializeField] private Vector3 firstIngredientLocalOffset = new Vector3(0f, 0.08f, 0f);
+    [FormerlySerializedAs("firstIngredientLocalOffset")]
+    [Tooltip("Optional sideways offset for the whole stack. Its component along Stack Direction is ignored because height is calculated automatically.")]
+    [SerializeField] private Vector3 stackOriginLocalOffset;
     [SerializeField] private Vector3 stackDirection = Vector3.up;
-    [SerializeField] private float ingredientSpacing = 0.08f;
+    [Min(0f)]
+    [Tooltip("Small gap between solid ingredient surfaces. Ingredient thickness is calculated automatically from visible bounds.")]
+    [SerializeField] private float surfaceGap = 0.002f;
+    [Min(0f)]
+    [Tooltip("Prevents surface overlays such as condiments from z-fighting with the ingredient beneath them.")]
+    [SerializeField] private float overlayGap = 0.001f;
     [SerializeField] private Vector3 snappedLocalEulerAngles;
+    [SerializeField] private float serverInteractRange = 4f;
 
     private readonly List<FoodIngredient> snappedIngredients = new();
     private readonly List<Vector3> snappedIngredientLocalPositions = new();
     private readonly List<Quaternion> snappedIngredientLocalRotations = new();
     private readonly List<FoodIngredient> assembledIngredients = new();
+    private NetworkList<FoodStackEntry> stackEntries;
     private FoodIngredient baseIngredient;
     private ServingTray currentTray;
+    private bool isWaitingForStackObjects;
 
     public FoodItemDefinition FoodDefinition => foodDefinition;
     public IReadOnlyList<FoodIngredient> SnappedIngredients => snappedIngredients;
@@ -35,6 +83,24 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
     private void Awake()
     {
         baseIngredient = GetComponent<FoodIngredient>();
+        stackEntries = new NetworkList<FoodStackEntry>(
+            null,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        stackEntries.OnListChanged += OnStackEntriesChanged;
+        RebuildStackFromNetworkState();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        stackEntries.OnListChanged -= OnStackEntriesChanged;
+        isWaitingForStackObjects = false;
+        base.OnNetworkDespawn();
     }
 
     public void Interact(PlayerInteraction interactor)
@@ -48,12 +114,18 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         RequestUseHeldItemServerRpc();
     }
 
-    [ServerRpc(RequireOwnership = false)]
-    private void RequestUseHeldItemServerRpc(ServerRpcParams rpcParams = default)
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestUseHeldItemServerRpc(RpcParams rpcParams = default)
     {
         if (!TryGetSenderPickup(rpcParams.Receive.SenderClientId, out PlayerPickup playerPickup))
         {
             Log($"Could not find PlayerPickup for client {rpcParams.Receive.SenderClientId}.");
+            return;
+        }
+
+        if (!IsPlayerCloseEnough(playerPickup))
+        {
+            Log($"Client {rpcParams.Receive.SenderClientId} is too far away to use this food assembly.");
             return;
         }
 
@@ -70,7 +142,7 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 
         if (!playerPickup.ServerTryGetHeldItem(out Item heldItem))
         {
-            return false;
+            return ServerTryTakeTopIngredient(playerPickup);
         }
 
         ServingTray servingTray = GetServingTray(heldItem);
@@ -143,42 +215,52 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 
     public bool ServerTrySnapIngredient(FoodIngredient ingredient)
     {
-        return ServerTrySnapIngredient(ingredient, Quaternion.Euler(snappedLocalEulerAngles), spacingMultiplier: 1f);
+        return ServerTrySnapIngredient(
+            ingredient,
+            Quaternion.Euler(snappedLocalEulerAngles),
+            Vector3.zero,
+            isRemovable: true
+        );
     }
 
     public bool ServerTrySnapIngredientWithLocalYRotationOffset(
         FoodIngredient ingredient,
         float localYRotationOffset,
-        float spacingMultiplier)
+        bool isRemovable = true)
     {
         Vector3 localEulerAngles = snappedLocalEulerAngles;
         localEulerAngles.y += localYRotationOffset;
 
-        return ServerTrySnapIngredient(ingredient, Quaternion.Euler(localEulerAngles), spacingMultiplier);
+        return ServerTrySnapIngredient(
+            ingredient,
+            Quaternion.Euler(localEulerAngles),
+            Vector3.zero,
+            isRemovable
+        );
     }
 
     public bool ServerTrySnapIngredientWithLocalOffsets(
         FoodIngredient ingredient,
         float localYRotationOffset,
-        float spacingMultiplier,
-        Vector3 localPositionOffset)
+        Vector3 localPositionOffset,
+        bool isRemovable = true)
     {
         Vector3 localEulerAngles = snappedLocalEulerAngles;
         localEulerAngles.y += localYRotationOffset;
 
-        return ServerTrySnapIngredient(ingredient, Quaternion.Euler(localEulerAngles), spacingMultiplier, localPositionOffset);
-    }
-
-    private bool ServerTrySnapIngredient(FoodIngredient ingredient, Quaternion localRotation, float spacingMultiplier)
-    {
-        return ServerTrySnapIngredient(ingredient, localRotation, spacingMultiplier, Vector3.zero);
+        return ServerTrySnapIngredient(
+            ingredient,
+            Quaternion.Euler(localEulerAngles),
+            localPositionOffset,
+            isRemovable
+        );
     }
 
     private bool ServerTrySnapIngredient(
         FoodIngredient ingredient,
         Quaternion localRotation,
-        float spacingMultiplier,
-        Vector3 localPositionOffset)
+        Vector3 localPositionOffset,
+        bool isRemovable)
     {
         if (!IsServerActive()) return false;
         if (!CanSnapIngredient(ingredient, allowHeld: false, out _))
@@ -186,40 +268,65 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             return false;
         }
 
-        RemoveMissingSnappedIngredients();
-        EnsureSnappedIngredientLocalPositions();
-
-        Vector3 localPosition = GetLocalSnapPosition(snappedIngredients.Count, spacingMultiplier) + localPositionOffset;
-
-        snappedIngredients.Add(ingredient);
-        snappedIngredientLocalPositions.Add(localPosition);
-        snappedIngredientLocalRotations.Add(localRotation);
-        ApplySnappedPose(ingredient, localPosition, localRotation);
-
         NetworkObject ingredientNetworkObject = ingredient.GetComponent<NetworkObject>();
 
-        if (NetworkObject != null &&
-            NetworkObject.IsSpawned &&
-            ingredientNetworkObject != null &&
-            ingredientNetworkObject.IsSpawned)
+        if (ingredientNetworkObject == null || !ingredientNetworkObject.IsSpawned)
         {
-            SnapIngredientClientRpc(ingredientNetworkObject.NetworkObjectId, localPosition, localRotation);
+            return false;
         }
+
+        stackEntries.Add(new FoodStackEntry(
+            ingredientNetworkObject.NetworkObjectId,
+            localRotation,
+            localPositionOffset,
+            isRemovable
+        ));
 
         return true;
     }
 
+    public bool ServerTryTakeTopIngredient(PlayerPickup playerPickup)
+    {
+        if (!IsServerActive() || playerPickup == null) return false;
+        if (playerPickup.ServerTryGetHeldItem(out _)) return false;
+
+        Item assemblyItem = GetComponent<Item>();
+        if (assemblyItem != null && assemblyItem.IsHeld) return false;
+
+        for (int i = stackEntries.Count - 1; i >= 0; i--)
+        {
+            FoodStackEntry entry = stackEntries[i];
+            if (!entry.IsRemovable) continue;
+            if (!TryResolveIngredient(entry.IngredientNetworkObjectId, out FoodIngredient ingredient)) continue;
+
+            Item ingredientItem = ingredient.GetComponent<Item>();
+            if (ingredientItem == null) continue;
+
+            stackEntries.RemoveAt(i);
+            ingredientItem.UnlockLocalParent();
+
+            if (playerPickup.ServerTryPickUpItem(ingredientItem))
+            {
+                return true;
+            }
+
+            stackEntries.Insert(i, entry);
+            return false;
+        }
+
+        return false;
+    }
+
     public void RefreshSnappedIngredientLayout()
     {
-        TrackSnappedIngredientsFromChildren();
-        RemoveMissingSnappedIngredients();
-        EnsureSnappedIngredientLocalPositions();
-        EnsureSnappedIngredientLocalRotations();
-
-        for (int i = 0; i < snappedIngredients.Count; i++)
+        if (IsSpawned)
         {
-            ApplySnappedPose(snappedIngredients[i], snappedIngredientLocalPositions[i], snappedIngredientLocalRotations[i]);
+            RebuildStackFromNetworkState();
+            return;
         }
+
+        TrackSnappedIngredientsFromChildren();
+        ApplyTrackedIngredientPoses();
     }
 
     public void SetCurrentServingTray(ServingTray servingTray)
@@ -254,6 +361,12 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         if (!ingredient.HasDefinition)
         {
             reason = $"{ingredient.name} has no FoodIngredientDefinition assigned.";
+            return false;
+        }
+
+        if (ingredient.Definition.StackBehavior == FoodStackBehavior.Unstackable)
+        {
+            reason = $"{ingredient.Definition.IngredientName} cannot be added to a food stack.";
             return false;
         }
 
@@ -335,40 +448,20 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
     private Vector3 GetLocalSnapPosition(int snappedIngredientIndex)
     {
         Vector3 direction = stackDirection.sqrMagnitude > 0f ? stackDirection.normalized : Vector3.up;
-        return firstIngredientLocalOffset + direction * ingredientSpacing * snappedIngredientIndex;
-    }
-
-    private Vector3 GetLocalSnapPosition(int snappedIngredientIndex, float spacingMultiplier)
-    {
-        if (snappedIngredientIndex == 0)
-        {
-            return GetLocalSnapPosition(snappedIngredientIndex);
-        }
-
-        EnsureSnappedIngredientLocalPositions();
-
-        if (snappedIngredientLocalPositions.Count == 0)
-        {
-            return GetLocalSnapPosition(snappedIngredientIndex);
-        }
-
-        Vector3 direction = stackDirection.sqrMagnitude > 0f ? stackDirection.normalized : Vector3.up;
-        Vector3 previousPosition = snappedIngredientLocalPositions[snappedIngredientLocalPositions.Count - 1];
-        float previousStackDistance = Vector3.Dot(previousPosition - firstIngredientLocalOffset, direction);
-
-        return firstIngredientLocalOffset + direction * (previousStackDistance + ingredientSpacing * Mathf.Max(0f, spacingMultiplier));
+        return GetStackOriginOffset(direction);
     }
 
     private void ApplySnappedPose(FoodIngredient ingredient, Vector3 localPosition, Quaternion localRotation)
     {
         if (ingredient == null) return;
 
+        ingredient.SetCurrentAssembly(this);
         Transform parent = snapRoot != null ? snapRoot : transform;
         Item item = ingredient.GetComponent<Item>();
 
         if (item != null)
         {
-            item.LockLocalParent(parent, localPosition, localRotation);
+            item.LockLocalParentPreserveWorldScale(parent, localPosition, localRotation);
         }
         else
         {
@@ -379,11 +472,11 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
 
         Rigidbody rb = ingredient.GetComponent<Rigidbody>();
 
-        if (rb != null)
+        if (rb != null && !rb.isKinematic)
         {
-            rb.isKinematic = true;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
         }
 
         NetworkTransform networkTransform = ingredient.GetComponent<NetworkTransform>();
@@ -401,30 +494,68 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
         }
     }
 
-    [ClientRpc]
-    private void SnapIngredientClientRpc(ulong ingredientNetworkObjectId, Vector3 localPosition, Quaternion localRotation)
+    private void OnStackEntriesChanged(NetworkListEvent<FoodStackEntry> changeEvent)
     {
-        if (NetworkManager.Singleton == null) return;
-
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(
-            ingredientNetworkObjectId,
-            out NetworkObject ingredientNetworkObject))
-        {
-            StartCoroutine(ApplySnappedPoseWhenSpawned(ingredientNetworkObjectId, localPosition, localRotation));
-            return;
-        }
-
-        FoodIngredient ingredient = ingredientNetworkObject.GetComponent<FoodIngredient>();
-        TrackSnappedIngredient(ingredient, localPosition, localRotation);
-        ApplySnappedPose(ingredient, localPosition, localRotation);
+        RebuildStackFromNetworkState();
     }
 
-    private IEnumerator ApplySnappedPoseWhenSpawned(
-        ulong ingredientNetworkObjectId,
-        Vector3 localPosition,
-        Quaternion localRotation)
+    private void RebuildStackFromNetworkState()
     {
-        const float timeoutSeconds = 2f;
+        List<FoodIngredient> previouslySnappedIngredients = new(snappedIngredients);
+        snappedIngredients.Clear();
+        snappedIngredientLocalPositions.Clear();
+        snappedIngredientLocalRotations.Clear();
+
+        Transform parent = snapRoot != null ? snapRoot : transform;
+        Vector3 direction = stackDirection.sqrMagnitude > 0f ? stackDirection.normalized : Vector3.up;
+        Vector3 stackOrigin = GetStackOriginOffset(direction);
+        float currentStackTop = GetInitialStackTop(parent, direction, stackOrigin);
+        bool hasMissingObject = false;
+
+        for (int i = 0; i < stackEntries.Count; i++)
+        {
+            FoodStackEntry entry = stackEntries[i];
+
+            if (!TryResolveIngredient(entry.IngredientNetworkObjectId, out FoodIngredient ingredient))
+            {
+                hasMissingObject = true;
+                continue;
+            }
+
+            Vector3 localPosition = GetAutomaticStackPosition(
+                ingredient,
+                entry,
+                parent,
+                direction,
+                stackOrigin,
+                ref currentStackTop
+            );
+
+            TrackSnappedIngredient(ingredient, localPosition, entry.LocalRotation);
+        }
+
+        for (int i = 0; i < previouslySnappedIngredients.Count; i++)
+        {
+            FoodIngredient previousIngredient = previouslySnappedIngredients[i];
+
+            if (previousIngredient != null &&
+                !snappedIngredients.Contains(previousIngredient) &&
+                previousIngredient.CurrentAssembly == this)
+            {
+                previousIngredient.SetCurrentAssembly(null);
+            }
+        }
+
+        if (hasMissingObject && !isWaitingForStackObjects && isActiveAndEnabled)
+        {
+            StartCoroutine(RebuildWhenStackObjectsAreSpawned());
+        }
+    }
+
+    private IEnumerator RebuildWhenStackObjectsAreSpawned()
+    {
+        isWaitingForStackObjects = true;
+        const float timeoutSeconds = 5f;
         float elapsedSeconds = 0f;
 
         while (elapsedSeconds < timeoutSeconds)
@@ -432,28 +563,112 @@ public class FoodAssemblyBase : NetworkBehaviour, IInteractable
             yield return null;
             elapsedSeconds += Time.deltaTime;
 
-            if (NetworkManager.Singleton == null)
+            bool allResolved = true;
+            for (int i = 0; i < stackEntries.Count; i++)
             {
-                yield break;
+                if (!TryResolveIngredient(stackEntries[i].IngredientNetworkObjectId, out _))
+                {
+                    allResolved = false;
+                    break;
+                }
             }
 
-            if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(
-                ingredientNetworkObjectId,
-                out NetworkObject ingredientNetworkObject))
-            {
-                continue;
-            }
+            if (!allResolved) continue;
 
-            FoodIngredient ingredient = ingredientNetworkObject.GetComponent<FoodIngredient>();
-            TrackSnappedIngredient(ingredient, localPosition, localRotation);
-            ApplySnappedPose(ingredient, localPosition, localRotation);
+            isWaitingForStackObjects = false;
+            RebuildStackFromNetworkState();
             yield break;
+        }
+
+        isWaitingForStackObjects = false;
+    }
+
+    private Vector3 GetAutomaticStackPosition(
+        FoodIngredient ingredient,
+        FoodStackEntry entry,
+        Transform parent,
+        Vector3 direction,
+        Vector3 stackOrigin,
+        ref float currentStackTop)
+    {
+        Vector3 lateralOffset = entry.LocalPositionOffset -
+                                direction * Vector3.Dot(entry.LocalPositionOffset, direction);
+        Vector3 candidatePosition = stackOrigin + lateralOffset;
+
+        // Measure in the exact rotation and preserved scale that will be used in the stack.
+        ApplySnappedPose(ingredient, candidatePosition, entry.LocalRotation);
+
+        if (!ingredient.TryGetStackProjection(parent, direction, out float bottom, out float top))
+        {
+            Vector3 fallbackPosition = candidatePosition + direction * currentStackTop;
+            ingredient.transform.localPosition = fallbackPosition;
+            return fallbackPosition;
+        }
+
+        FoodStackBehavior behavior = ingredient.Definition.StackBehavior;
+        float gap = behavior == FoodStackBehavior.SurfaceOverlay ? overlayGap : surfaceGap;
+        float correction = currentStackTop + gap - bottom;
+        Vector3 finalPosition = candidatePosition + direction * correction;
+
+        if (behavior == FoodStackBehavior.SolidLayer)
+        {
+            currentStackTop = top + correction;
+        }
+
+        ingredient.transform.localPosition = finalPosition;
+
+        return finalPosition;
+    }
+
+    private float GetInitialStackTop(Transform parent, Vector3 direction, Vector3 stackOrigin)
+    {
+        if (baseIngredient != null &&
+            baseIngredient.TryGetStackProjection(parent, direction, out _, out float baseTop))
+        {
+            return baseTop;
+        }
+
+        return Vector3.Dot(stackOrigin, direction);
+    }
+
+    private Vector3 GetStackOriginOffset(Vector3 direction)
+    {
+        return stackOriginLocalOffset - direction * Vector3.Dot(stackOriginLocalOffset, direction);
+    }
+
+    private bool TryResolveIngredient(ulong networkObjectId, out FoodIngredient ingredient)
+    {
+        ingredient = null;
+        if (NetworkManager.Singleton == null) return false;
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject networkObject)) return false;
+
+        ingredient = networkObject.GetComponent<FoodIngredient>();
+        return ingredient != null;
+    }
+
+    private void ApplyTrackedIngredientPoses()
+    {
+        RemoveMissingSnappedIngredients();
+        EnsureSnappedIngredientLocalPositions();
+        EnsureSnappedIngredientLocalRotations();
+
+        for (int i = 0; i < snappedIngredients.Count; i++)
+        {
+            ApplySnappedPose(snappedIngredients[i], snappedIngredientLocalPositions[i], snappedIngredientLocalRotations[i]);
         }
     }
 
     private bool IsServerActive()
     {
         return NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
+    }
+
+    private bool IsPlayerCloseEnough(PlayerPickup playerPickup)
+    {
+        if (playerPickup == null) return false;
+
+        float allowedRange = Mathf.Max(0f, serverInteractRange);
+        return Vector3.Distance(playerPickup.transform.position, transform.position) <= allowedRange;
     }
 
     private bool TryGetSenderPickup(ulong senderClientId, out PlayerPickup playerPickup)

@@ -181,6 +181,26 @@ public class Item : NetworkBehaviour
         LockLocalParent(parent, localPosition, localRotation, preserveWorldScale: true);
     }
 
+    /// <summary>
+    /// Locks an item at a world-space pose without inheriting scale from a station.
+    /// Use this for static placement surfaces whose transforms may be non-uniformly scaled.
+    /// </summary>
+    public void LockWorldPose(Vector3 worldPosition, Quaternion worldRotation)
+    {
+        Vector3 worldScale = transform.lossyScale;
+        localParentLocked = true;
+
+        if (NetworkObject != null)
+        {
+            NetworkObject.AutoObjectParentSync = false;
+        }
+
+        transform.SetParent(null, worldPositionStays: true);
+        transform.localScale = worldScale;
+        SetWorldPose(worldPosition, worldRotation);
+        ApplyHeldState(true);
+    }
+
     private void LockLocalParent(
         Transform parent,
         Vector3 localPosition,
@@ -225,13 +245,21 @@ public class Item : NetworkBehaviour
     {
         if (rb != null)
         {
-            rb.isKinematic = held;
-            rb.interpolation = held ? RigidbodyInterpolation.None : defaultInterpolation;
-
             if (held)
             {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+
+                rb.isKinematic = true;
+                rb.interpolation = RigidbodyInterpolation.None;
+            }
+            else
+            {
+                rb.isKinematic = false;
+                rb.interpolation = defaultInterpolation;
             }
         }
 

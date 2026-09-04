@@ -245,7 +245,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f7e6c84143a4ee7a88e6ef83abe91ffc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FoodIngredient
-  definition: {fileID: 0}
+  definition: {fileID: 11400000, guid: 686bbc98c54bc3f50b9c0e064291e5a9, type: 2}
   useDefinitionDefaultStates: 1
   cookState: 0
   prepState: 0
@@ -265,7 +265,9 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   foodDefinition: {fileID: 11400000, guid: 0c24c8a8f21ec6974a08ee91805d52a7, type: 2}
   snapRoot: {fileID: 1028717257751331777}
-  firstIngredientLocalOffset: {x: 0, y: 0.02, z: 0}
+  stackOriginLocalOffset: {x: 0, y: 0, z: 0}
   stackDirection: {x: 0, y: 1, z: 0}
-  ingredientSpacing: 0.02
+  surfaceGap: 0.002
+  overlayGap: 0.001
   snappedLocalEulerAngles: {x: 0, y: 0, z: 0}
+  serverInteractRange: 4

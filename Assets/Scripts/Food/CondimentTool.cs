@@ -16,8 +16,6 @@ public class CondimentTool : NetworkBehaviour
     [Header("Placement")]
     [SerializeField] private Vector2 randomLocalYRotationRange = new Vector2(0f, 360f);
     [SerializeField] private Vector2 hotdogRandomLocalXPositionRange = new Vector2(0f, -0.02f);
-    [Min(0f)]
-    [SerializeField] private float spacingMultiplier = 0.15f;
 
     [Header("Audio")]
     [SerializeField] private AudioClip squirtSound;
@@ -87,7 +85,11 @@ public class CondimentTool : NetworkBehaviour
             : 0f;
         Vector3 localPositionOffset = GetLocalPositionOffset(assemblyBase);
 
-        if (assemblyBase.ServerTrySnapIngredientWithLocalOffsets(condiment, localYRotation, spacingMultiplier, localPositionOffset))
+        if (assemblyBase.ServerTrySnapIngredientWithLocalOffsets(
+            condiment,
+            localYRotation,
+            localPositionOffset,
+            isRemovable: false))
         {
             PlaySquirtSoundClientRpc(assemblyBase.transform.position);
             return true;
