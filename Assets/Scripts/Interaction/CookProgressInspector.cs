@@ -80,13 +80,12 @@ public class CookProgressInspector : MonoBehaviour
             return false;
         }
 
-        IReadOnlyList<FoodIngredient> ingredients = grill.GetCookingIngredients();
+        IReadOnlyCollection<FoodIngredient> ingredients = grill.GetCookingIngredients();
         StringBuilder info = new();
         int displayedIngredientCount = 0;
 
-        for (int i = 0; i < ingredients.Count; i++)
+        foreach (FoodIngredient ingredient in ingredients)
         {
-            FoodIngredient ingredient = ingredients[i];
             if (ingredient == null || !ingredient.CanBeCooked || ingredient.Definition == null)
             {
                 continue;
@@ -94,9 +93,7 @@ public class CookProgressInspector : MonoBehaviour
 
             if (info.Length > 0) info.AppendLine();
             info.Append(ingredient.Definition.IngredientName);
-            info.Append(" (Slot ");
-            info.Append(i + 1);
-            info.Append("): ");
+            info.Append(": ");
             info.Append(Mathf.RoundToInt(ingredient.CookProgress * 100f));
             info.Append('%');
             displayedIngredientCount++;
