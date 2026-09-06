@@ -1,16 +1,16 @@
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>
-/// Player pickup controller.
-/// Held items locally attach to this player's holdPoint while held.
-/// </summary>
+
 public class PlayerPickup : NetworkBehaviour
 {
     private const ulong NoItem = ulong.MaxValue;
 
     [Header("Pickup Settings")]
     public float pickupRange = 2.5f;
+
+    [Header("Throwing")]
+    [SerializeField, Min(0f)] private float throwSpeed = 8f;
 
     [Header("References")]
     public Transform holdPoint;
@@ -53,65 +53,117 @@ public class PlayerPickup : NetworkBehaviour
         }
     }
 
+    private readonly ItemPlacementPreview placementPreview = new();
+    private bool isAimingPlacement;
+    private bool applicationFocused = true;
+
     private void Update()
     {
-        if (!IsOwner) return;
-
-        if (inputs.Player.PickUp.WasPressedThisFrame())
+        if (!IsOwner || !IsSpawned || NetworkSessionMenu.IsGameMenuOpen || !applicationFocused)
         {
-            if (!IsHoldingItemLocally)
-            {
-                if (TryGetItemInSight(out ulong targetId))
-                {
-                    RequestPickUpServerRpc(targetId);
-                }
-            }
-            else
-            {
-                if (TryGetItemInSight(out ulong targetId))
-                {
-                    RequestSwapServerRpc(targetId);
-                }
-            }
+            isAimingPlacement = false;
+            placementPreview.Hide();
+            return;
         }
-
-        if (inputs.Player.Drop.WasPressedThisFrame() && IsHoldingItemLocally)
+        if (!IsHoldingItemLocally || !TryResolveHeldItem() || playerCamera == null)
         {
-            if (TryGetCustomerInSight(out ulong customerNetId))
-                RequestDeliverServerRpc(customerNetId);
-            else
-                RequestDropServerRpc();
+            isAimingPlacement = false;
+            placementPreview.Clear();
+            return;
         }
+        if (inputs.Player.Throw.WasPressedThisFrame())
+        {
+            isAimingPlacement = false;
+            placementPreview.Hide();
+            RequestThrowServerRpc(heldItemNetId.Value, playerCamera.transform.forward);
+            return;
+        }
+        if (inputs.Player.Drop.WasPressedThisFrame()) isAimingPlacement = true;
+        bool releasePlacement = isAimingPlacement && inputs.Player.Drop.WasReleasedThisFrame();
+        if (!isAimingPlacement || (!inputs.Player.Drop.IsPressed() && !releasePlacement))
+        {
+            isAimingPlacement = false;
+            placementPreview.Hide();
+            return;
+        }
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
+        bool hasPose = ItemPlacement.TryFindPose(heldItem, transform, ray, pickupRange,
+            out Vector3 position, out Quaternion rotation, out bool valid);
+        if (hasPose) placementPreview.Show(heldItem, position, rotation, valid);
+        else placementPreview.Hide();
+        if (releasePlacement)
+        {
+            isAimingPlacement = false;
+            placementPreview.Hide();
+            if (hasPose && valid) RequestPlaceServerRpc(heldItemNetId.Value, ray.origin, ray.direction);
+        }
+    }
+
+    // Called only by PlayerInteraction, so F cannot pick up and interact twice.
+    public void RequestPickUpItem(Item item)
+    {
+        if (!IsOwner || !enabled || NetworkSessionMenu.IsGameMenuOpen || IsHoldingItemLocally || item == null) return;
+        RequestPickUpServerRpc(item.NetworkObjectId);
+    }
+
+    public bool TryDeliverFromView()
+    {
+        if (!IsOwner || !enabled || !IsHoldingItemLocally || !TryResolveHeldItem() ||
+            !heldItem.TryGetComponent<ServingTray>(out _) || !TryGetCustomerInSight(out ulong customer)) return false;
+        RequestDeliverServerRpc(customer);
+        return true;
+    }
+
+    [ServerRpc]
+    private void RequestPlaceServerRpc(ulong expectedItem, Vector3 origin, Vector3 direction)
+    {
+        if (!enabled || expectedItem != heldItemNetId.Value || !TryResolveHeldItem()) return;
+        if (TryGetComponent(out PlayerVehicleDriver driver) && driver.IsSeated) return;
+        if (!ItemPlacement.IsFinite(origin) || !ItemPlacement.IsFinite(direction)) return;
+        Vector3 eye = playerCamera != null ? playerCamera.transform.position : transform.position + Vector3.up;
+        if (Vector3.Distance(eye, origin) > 1f || direction.sqrMagnitude < 0.5f || direction.sqrMagnitude > 1.5f) return;
+        // Reject displaced ray origins that cross a wall between the host's eye and the client's eye.
+        foreach (RaycastHit hit in Physics.RaycastAll(eye, origin - eye, Vector3.Distance(eye, origin),
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (!hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(heldItem.transform)) return;
+        if (!ItemPlacement.TryFindPose(heldItem, transform, new Ray(origin, direction.normalized), pickupRange,
+            out Vector3 position, out Quaternion rotation, out bool valid) || !valid) return;
+        ServerTryReleaseHeldItem(heldItem, position, rotation);
+    }
+    [ServerRpc]
+    private void RequestThrowServerRpc(ulong expectedItem, Vector3 direction)
+    {
+        if (!enabled || expectedItem != heldItemNetId.Value || !TryResolveHeldItem()) return;
+        if (TryGetComponent(out PlayerVehicleDriver driver) && driver.IsSeated) return;
+        if (!ItemPlacement.IsFinite(direction) || direction.sqrMagnitude < 0.5f || direction.sqrMagnitude > 1.5f) return;
+        Item item = heldItem;
+        Vector3 position = item.transform.position;
+        Quaternion rotation = item.transform.rotation;
+        // Keep the release at the hand, and reject throwing from inside/through a wall.
+        if (!ItemPlacement.TryGetBounds(item, out Bounds bounds)) return;
+        Vector3 scale = item.transform.lossyScale;
+        Vector3 center = item.transform.TransformPoint(bounds.center);
+        Vector3 extents = Vector3.Scale(bounds.extents,
+            new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
+        foreach (Collider overlap in Physics.OverlapBox(center, extents, rotation,
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (!overlap.transform.IsChildOf(transform) && !overlap.transform.IsChildOf(item.transform)) return;
+        Vector3 eye = playerCamera != null ? playerCamera.transform.position : transform.position + Vector3.up;
+        foreach (RaycastHit hit in Physics.RaycastAll(eye, center - eye, Vector3.Distance(eye, center),
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (!hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(item.transform)) return;
+        if (ServerTryReleaseHeldItem(item, position, rotation))
+            item.ServerApplyThrow(direction.normalized * Mathf.Max(0f, throwSpeed), transform);
     }
 
     [ServerRpc]
     private void RequestPickUpServerRpc(ulong networkObjectId)
     {
-        if (heldItem != null) return;
+        if (heldItemNetId.Value != NoItem) return;
 
         if (!TryResolveItem(networkObjectId, out Item target)) return;
 
         PerformPickUp(target);
-    }
-
-    [ServerRpc]
-    private void RequestSwapServerRpc(ulong networkObjectId)
-    {
-        if (!TryResolveItem(networkObjectId, out Item target)) return;
-
-        if (heldItem == target)
-        {
-            return;
-        }
-
-        PerformDrop();
-        PerformPickUp(target);
-    }
-
-    [ServerRpc]
-    private void RequestDropServerRpc()
-    {
-        PerformDrop();
     }
 
     private bool TryResolveItem(ulong networkObjectId, out Item item)
@@ -218,28 +270,6 @@ public class PlayerPickup : NetworkBehaviour
         return true;
     }
 
-    private void PerformDrop()
-    {
-        if (!IsServer) return;
-
-        if (heldItem == null)
-        {
-            TryResolveHeldItem();
-        }
-
-        if (heldItem == null) return;
-
-        Vector3 dropPosition = GetDropPosition();
-        Quaternion dropRotation = Quaternion.LookRotation(transform.forward, Vector3.up);
-
-        heldItem.ServerStopHolding(dropPosition, dropRotation);
-
-        Debug.Log($"[Server] {gameObject.name} dropped {heldItem.itemName}");
-
-        heldItem = null;
-        heldItemNetId.Value = NoItem;
-    }
-
     private bool TryResolveHeldItem()
     {
         if (heldItemNetId.Value == NoItem) return false;
@@ -254,85 +284,6 @@ public class PlayerPickup : NetworkBehaviour
         heldItem = netObj.GetComponent<Item>();
 
         return heldItem != null;
-    }
-
-    private Vector3 GetDropPosition()
-    {
-        Vector3 basePosition;
-
-        if (holdPoint != null)
-        {
-            basePosition = holdPoint.position;
-        }
-        else
-        {
-            basePosition = transform.position + Vector3.up;
-        }
-
-        return basePosition + transform.forward * 1f;
-    }
-
-    private bool TryGetItemInSight(out ulong networkObjectId)
-    {
-        networkObjectId = default;
-
-        if (playerCamera == null)
-        {
-            Debug.LogWarning("[Client] Player camera is missing.");
-            return false;
-        }
-
-        Ray ray = playerCamera.ScreenPointToRay(
-            new Vector3(Screen.width / 2f, Screen.height / 2f, 0f)
-        );
-
-        RaycastHit[] hits = Physics.RaycastAll(
-            ray,
-            pickupRange,
-            pickableLayer,
-            QueryTriggerInteraction.Ignore
-        );
-
-        if (hits.Length == 0)
-        {
-            return false;
-        }
-
-        float closestDistance = float.MaxValue;
-        NetworkObject closestNetObj = null;
-
-        for (int i = 0; i < hits.Length; i++)
-        {
-            if (hits[i].distance >= closestDistance)
-            {
-                continue;
-            }
-
-            NetworkObject netObj = hits[i].collider.GetComponentInParent<NetworkObject>();
-
-            if (netObj == null)
-            {
-                continue;
-            }
-
-            Item item = netObj.GetComponent<Item>();
-
-            if (item == null || item.IsHeld)
-            {
-                continue;
-            }
-
-            closestNetObj = netObj;
-            closestDistance = hits[i].distance;
-        }
-
-        if (closestNetObj == null)
-        {
-            return false;
-        }
-
-        networkObjectId = closestNetObj.NetworkObjectId;
-        return true;
     }
 
     public Item GetHeldItem()
@@ -414,11 +365,32 @@ public class PlayerPickup : NetworkBehaviour
         }
     }
 
+    public override void OnNetworkDespawn() => placementPreview.Clear();
+
+    public override void OnDestroy()
+    {
+        placementPreview.Clear();
+        inputs?.Dispose();
+        base.OnDestroy();
+    }
+
     private void OnDisable()
     {
+        isAimingPlacement = false;
+        placementPreview.Clear();
         if (inputs != null)
         {
             inputs.Player.Disable();
+        }
+    }
+
+    private void OnApplicationFocus(bool focused)
+    {
+        applicationFocused = focused;
+        if (!focused)
+        {
+            isAimingPlacement = false;
+            placementPreview.Hide();
         }
     }
 

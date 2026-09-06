@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -11,8 +12,12 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkObject))]
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(Collider))]
-public class Item : NetworkBehaviour
+public class Item : NetworkBehaviour, IInteractable
 {
+    public void Interact(PlayerInteraction interactor)
+    {
+        if (interactor.TryGetComponent(out PlayerPickup pickup)) pickup.RequestPickUpItem(this);
+    }
     [Header("Item Info")]
     public string itemName = "Item";
     public ItemType itemType = ItemType.Food;
@@ -41,6 +46,13 @@ public class Item : NetworkBehaviour
     );
 
     public bool IsHeld => holderClientId.Value != NoHolder;
+
+    public bool IsColliderEnabledAfterRelease(Collider collider)
+    {
+        if (collider == null || !collider.gameObject.activeInHierarchy) return false;
+        if (colliderStatesBeforeHold.TryGetValue(collider, out bool wasEnabled)) return wasEnabled;
+        return collider.enabled;
+    }
 
     private void Awake()
     {
@@ -147,6 +159,9 @@ public class Item : NetworkBehaviour
         }
 
         ApplyHeldState(false);
+        if (networkTransform != null && networkTransform.IsSpawned &&
+            (networkTransform.IsServerAuthoritative() || networkTransform.IsOwner))
+            networkTransform.Teleport(dropPosition, dropRotation, transform.localScale);
     }
 
     public void ServerStopHoldingPreserveWorldPose()
@@ -179,6 +194,40 @@ public class Item : NetworkBehaviour
     public void LockLocalParentPreserveWorldScale(Transform parent, Vector3 localPosition, Quaternion localRotation)
     {
         LockLocalParent(parent, localPosition, localRotation, preserveWorldScale: true);
+    }
+
+    public void ServerApplyThrow(Vector3 velocity, Transform thrower)
+    {
+        if (!IsServer || IsHeld || rb == null || rb.isKinematic || !ItemPlacement.IsFinite(velocity)) return;
+        rb.linearVelocity = velocity;
+        rb.WakeUp();
+        if (thrower != null) StartCoroutine(IgnoreThrowerUntilClear(thrower));
+    }
+
+    private IEnumerator IgnoreThrowerUntilClear(Transform thrower)
+    {
+        var pairs = new List<(Collider item, Collider player)>();
+        Collider[] playerColliders = thrower.GetComponentsInChildren<Collider>();
+        foreach (Collider itemCollider in GetComponentsInChildren<Collider>())
+        foreach (Collider playerCollider in playerColliders)
+        {
+            if (itemCollider == playerCollider || Physics.GetIgnoreCollision(itemCollider, playerCollider)) continue;
+            Physics.IgnoreCollision(itemCollider, playerCollider, true);
+            pairs.Add((itemCollider, playerCollider));
+        }
+        var step = new WaitForFixedUpdate();
+        float earliestRestore = Time.time + 0.15f;
+        bool overlapping;
+        do
+        {
+            yield return step;
+            overlapping = false;
+            foreach (var pair in pairs)
+                if (pair.item != null && pair.player != null && pair.item.enabled && pair.player.enabled &&
+                    pair.item.bounds.Intersects(pair.player.bounds)) { overlapping = true; break; }
+        } while (!IsHeld && (Time.time < earliestRestore || overlapping));
+        foreach (var pair in pairs)
+            if (pair.item != null && pair.player != null) Physics.IgnoreCollision(pair.item, pair.player, false);
     }
 
     /// <summary>
