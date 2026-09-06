@@ -18,6 +18,14 @@ public enum FoodPrepState
     Sliced
 }
 
+public enum FoodCookPreference
+{
+    TwentyFive = 25,
+    Fifty = 50,
+    SeventyFive = 75,
+    OneHundred = 100
+}
+
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Item))]
 public class FoodIngredient : NetworkBehaviour

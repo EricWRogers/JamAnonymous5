@@ -31,6 +31,7 @@ public class CustomerAI : NetworkBehaviour
     [Header("Order")]
     public NetworkVariable<ulong> customerId = new NetworkVariable<ulong>();
     public List<FoodIngredientDefinition> wantedIngredients = new();
+    private readonly List<float> wantedCookPercentages = new();
     private List<string> syncedIngredientNames = new();
 
     [Header("Possible Meals")]
@@ -79,10 +80,26 @@ public class CustomerAI : NetworkBehaviour
         if (possibleMeals == null || possibleMeals.Length == 0) return;
         var meal = possibleMeals[Random.Range(0, possibleMeals.Length)];
         wantedIngredients.AddRange(meal.ingredients);
+        wantedCookPercentages.Clear();
 
         var names = new List<string>();
         foreach (var ing in wantedIngredients)
-            names.Add(ing.IngredientName);
+        {
+            float requestedCookPercentage = ing != null && ing.CanBeCooked
+                ? (float)(FoodCookPreference)new[]
+                {
+                    FoodCookPreference.TwentyFive,
+                    FoodCookPreference.Fifty,
+                    FoodCookPreference.SeventyFive,
+                    FoodCookPreference.OneHundred
+                }[Random.Range(0, 4)]
+                : -1f;
+
+            wantedCookPercentages.Add(requestedCookPercentage);
+            names.Add(requestedCookPercentage >= 0f
+                ? $"{ing.IngredientName} ({requestedCookPercentage:0}%)"
+                : ing.IngredientName);
+        }
 
         syncedIngredientNames = names;
         SyncIngredientsClientRpc(string.Join(",", names));
@@ -93,6 +110,20 @@ public class CustomerAI : NetworkBehaviour
     {
         if (IsHost) return;
         syncedIngredientNames = new List<string>(ingredientNames.Split(','));
+    }
+
+    public void SetSubmittedCookPreferences(string serializedPercentages)
+    {
+        if (string.IsNullOrEmpty(serializedPercentages)) return;
+
+        string[] values = serializedPercentages.Split(',');
+        for (int i = 0; i < values.Length && i < wantedCookPercentages.Count; i++)
+        {
+            if (float.TryParse(values[i], out float percentage) && percentage >= 0f)
+            {
+                wantedCookPercentages[i] = Mathf.Clamp(percentage, 0f, 100f);
+            }
+        }
     }
 
     public void SetQueueDestination(Vector3 position, bool isAtCounter)
@@ -129,7 +160,7 @@ public class CustomerAI : NetworkBehaviour
                 break;
 
             case CustomerState.Yapping:
-                orderUI.StartYapping(wantedIngredients);
+                orderUI.StartYappingNames(syncedIngredientNames);
                 UpdateOrderUIClientRpc((int)CustomerState.Yapping);
                 break;
 
@@ -336,10 +367,7 @@ public class CustomerAI : NetworkBehaviour
 
     public string GetIngredientNamesString()
     {
-        var names = new List<string>();
-        foreach (var ing in wantedIngredients)
-            names.Add(ing.IngredientName);
-        return string.Join(",", names);
+        return string.Join(",", syncedIngredientNames);
     }
 
     float ScoreOrder(Item tray)
@@ -361,8 +389,20 @@ public class CustomerAI : NetworkBehaviour
             {
                 if (wanted[i] == ingredient.Definition)
                 {
-                    score += 1f;
+                    float ingredientScore = 1f;
+                    float requestedCookPercentage = i < wantedCookPercentages.Count
+                        ? wantedCookPercentages[i]
+                        : -1f;
+
+                    if (requestedCookPercentage >= 0f && ingredient.CanBeCooked)
+                    {
+                        float actualCookPercentage = ingredient.CookProgress * 100f;
+                        ingredientScore = 1f - Mathf.Abs(actualCookPercentage - requestedCookPercentage) / 100f;
+                    }
+
+                    score += Mathf.Clamp01(ingredientScore);
                     wanted.RemoveAt(i);
+                    wantedCookPercentages.RemoveAt(i);
                     exactMatch = true;
                     break;
                 }
@@ -379,6 +419,10 @@ public class CustomerAI : NetworkBehaviour
                     {
                         score += 0.5f;
                         wanted.RemoveAt(i);
+                        if (i < wantedCookPercentages.Count)
+                        {
+                            wantedCookPercentages.RemoveAt(i);
+                        }
                         subMatch = true;
                         break;
                     }

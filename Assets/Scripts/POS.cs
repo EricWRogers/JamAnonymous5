@@ -11,6 +11,7 @@ public class POS : NetworkBehaviour
     public TextMeshProUGUI text;
 
     public List<FoodIngredientDefinition> ingredientsForOrder = new List<FoodIngredientDefinition>();
+    private readonly List<float> cookPercentagesForOrder = new();
 
     public string orderText;
 
@@ -27,12 +28,22 @@ public class POS : NetworkBehaviour
     public void SubmitOrder()
     {
         var names = new List<string>();
-        foreach (var ing in ingredientsForOrder)
-            names.Add(ing.IngredientName);
-        string ingredientString = string.Join(",", names);
+        var percentages = new List<string>();
 
-        RegisterTest.Instance.NotifyOrderSubmittedServerRpc(ingredientString);
+        for (int i = 0; i < ingredientsForOrder.Count; i++)
+        {
+            names.Add(ingredientsForOrder[i].IngredientName);
+            percentages.Add(i < cookPercentagesForOrder.Count
+                ? cookPercentagesForOrder[i].ToString("0")
+                : "-1");
+        }
+
+        string ingredientString = string.Join(",", names);
+        string cookPercentageString = string.Join(",", percentages);
+
+        RegisterTest.Instance.NotifyOrderSubmittedServerRpc(ingredientString, cookPercentageString);
         ingredientsForOrder.Clear();
+        cookPercentagesForOrder.Clear();
         orderText = "";
         SubmitOrderServerRpc();
     }
@@ -40,9 +51,35 @@ public class POS : NetworkBehaviour
     public void AddIngredient(FoodIngredientButtonDefinition ingredient)
     {
         ingredientsForOrder.Add(ingredient.ingredient);
+        cookPercentagesForOrder.Add(-1f);
         orderText += ingredient.ingredient.IngredientName + "\n";
         text.text = orderText;
         UpdateOrderTextServerRpc(orderText);
+    }
+
+    public void SetLastCookPercentage(CookPreferenceButtonDefinition button)
+    {
+        if (button == null) return;
+        if (ingredientsForOrder.Count == 0) return;
+
+        int percentage = Mathf.Clamp(button.percentage, 0, 100);
+
+        int lastIndex = ingredientsForOrder.Count - 1;
+        while (cookPercentagesForOrder.Count < ingredientsForOrder.Count)
+        {
+            cookPercentagesForOrder.Add(-1f);
+        }
+
+        cookPercentagesForOrder[lastIndex] = Mathf.Clamp(percentage, 0, 100);
+
+        string[] orderLines = orderText.Split('\n');
+        if (lastIndex < orderLines.Length)
+        {
+            orderLines[lastIndex] = $"{ingredientsForOrder[lastIndex].IngredientName} ({percentage}%)";
+            orderText = string.Join("\n", orderLines);
+            text.text = orderText;
+            UpdateOrderTextServerRpc(orderText);
+        }
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -80,6 +117,7 @@ public class POS : NetworkBehaviour
     public void ResetToStartShift()
     {
         ingredientsForOrder.Clear();
+        cookPercentagesForOrder.Clear();
         orderText = "";
         text.text = orderText;
         UpdatePanelClientRpc(true, false);
