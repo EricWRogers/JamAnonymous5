@@ -32,10 +32,15 @@ public class POS : NetworkBehaviour
 
         for (int i = 0; i < ingredientsForOrder.Count; i++)
         {
-            names.Add(ingredientsForOrder[i].IngredientName);
-            percentages.Add(i < cookPercentagesForOrder.Count
-                ? cookPercentagesForOrder[i].ToString("0")
-                : "-1");
+            float percentage = i < cookPercentagesForOrder.Count
+                ? cookPercentagesForOrder[i]
+                : -1f;
+
+            names.Add(percentage >= 0f
+                ? $"{ingredientsForOrder[i].IngredientName} ({percentage:0}%)"
+                : ingredientsForOrder[i].IngredientName);
+            percentages.Add(percentage
+                .ToString("0"));
         }
 
         string ingredientString = string.Join(",", names);
@@ -45,6 +50,8 @@ public class POS : NetworkBehaviour
         ingredientsForOrder.Clear();
         cookPercentagesForOrder.Clear();
         orderText = "";
+        text.text = orderText;
+        UpdateOrderTextServerRpc(orderText);
         SubmitOrderServerRpc();
     }
 
