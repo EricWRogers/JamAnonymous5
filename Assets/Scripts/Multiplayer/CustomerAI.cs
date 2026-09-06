@@ -112,20 +112,6 @@ public class CustomerAI : NetworkBehaviour
         syncedIngredientNames = new List<string>(ingredientNames.Split(','));
     }
 
-    public void SetSubmittedCookPreferences(string serializedPercentages)
-    {
-        if (string.IsNullOrEmpty(serializedPercentages)) return;
-
-        string[] values = serializedPercentages.Split(',');
-        for (int i = 0; i < values.Length && i < wantedCookPercentages.Count; i++)
-        {
-            if (float.TryParse(values[i], out float percentage) && percentage >= 0f)
-            {
-                wantedCookPercentages[i] = Mathf.Clamp(percentage, 0f, 100f);
-            }
-        }
-    }
-
     public void SetQueueDestination(Vector3 position, bool isAtCounter)
     {
         if (agent == null) agent = GetComponent<NavMeshAgent>();
@@ -397,7 +383,12 @@ public class CustomerAI : NetworkBehaviour
                     if (requestedCookPercentage >= 0f && ingredient.CanBeCooked)
                     {
                         float actualCookPercentage = ingredient.CookProgress * 100f;
-                        ingredientScore = 1f - Mathf.Abs(actualCookPercentage - requestedCookPercentage) / 100f;
+                        float cookDifference = Mathf.Abs(actualCookPercentage - requestedCookPercentage);
+                        const float forgivingCookThreshold = 5f;
+                        ingredientScore = cookDifference <= forgivingCookThreshold
+                            ? 1f
+                            : 1f - (cookDifference - forgivingCookThreshold) /
+                                (100f - forgivingCookThreshold);
                     }
 
                     score += Mathf.Clamp01(ingredientScore);

@@ -45,14 +45,10 @@ public class RegisterTest : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void NotifyOrderSubmittedServerRpc(string ingredientNames, string cookPercentages)
+    public void NotifyOrderSubmittedServerRpc(string ingredientNames)
     {
         orderSubmitted = true;
         ulong customerId = queue.Count > 0 ? queue[0].customerId.Value : 0;
-        if (queue.Count > 0)
-        {
-            queue[0].SetSubmittedCookPreferences(cookPercentages);
-        }
 
         GameManager.Instance.SubmitOrderServerRpc(customerId);
         OrderManager.Instance.AddOrder(customerId, ingredientNames);

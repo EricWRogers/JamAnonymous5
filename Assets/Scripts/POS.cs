@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using TMPro;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -10,14 +11,32 @@ public class POS : NetworkBehaviour
 
     public TextMeshProUGUI text;
 
-    public List<FoodIngredientDefinition> ingredientsForOrder = new List<FoodIngredientDefinition>();
-    private readonly List<float> cookPercentagesForOrder = new();
-
     public string orderText;
+
+    private readonly List<string> serverIngredientNames = new();
+    private readonly List<float> serverCookPercentages = new();
+    private readonly NetworkVariable<FixedString4096Bytes> networkOrderText = new(
+        new FixedString4096Bytes(),
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
 
     public override void OnNetworkSpawn()
     {
+        networkOrderText.OnValueChanged += OnOrderTextChanged;
+        if (IsServer)
+        {
+            networkOrderText.Value = new FixedString4096Bytes();
+        }
+
+        ApplyOrderText(networkOrderText.Value.ToString());
         UpdatePanelClientRpc(true, false);
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        networkOrderText.OnValueChanged -= OnOrderTextChanged;
+        base.OnNetworkDespawn();
     }
 
     public void StartShift()
@@ -27,78 +46,83 @@ public class POS : NetworkBehaviour
 
     public void SubmitOrder()
     {
-        var names = new List<string>();
-        var percentages = new List<string>();
-
-        for (int i = 0; i < ingredientsForOrder.Count; i++)
-        {
-            float percentage = i < cookPercentagesForOrder.Count
-                ? cookPercentagesForOrder[i]
-                : -1f;
-
-            names.Add(percentage >= 0f
-                ? $"{ingredientsForOrder[i].IngredientName} ({percentage:0}%)"
-                : ingredientsForOrder[i].IngredientName);
-            percentages.Add(percentage
-                .ToString("0"));
-        }
-
-        string ingredientString = string.Join(",", names);
-        string cookPercentageString = string.Join(",", percentages);
-
-        RegisterTest.Instance.NotifyOrderSubmittedServerRpc(ingredientString, cookPercentageString);
-        ingredientsForOrder.Clear();
-        cookPercentagesForOrder.Clear();
-        orderText = "";
-        text.text = orderText;
-        UpdateOrderTextServerRpc(orderText);
         SubmitOrderServerRpc();
     }
 
     public void AddIngredient(FoodIngredientButtonDefinition ingredient)
     {
-        ingredientsForOrder.Add(ingredient.ingredient);
-        cookPercentagesForOrder.Add(-1f);
-        orderText += ingredient.ingredient.IngredientName + "\n";
-        text.text = orderText;
-        UpdateOrderTextServerRpc(orderText);
+        if (ingredient == null || ingredient.ingredient == null) return;
+        AddIngredientServerRpc(ingredient.ingredient.IngredientName);
+    }
+
+    public void RemoveLastIngredient()
+    {
+        RemoveLastIngredientServerRpc();
     }
 
     public void SetLastCookPercentage(CookPreferenceButtonDefinition button)
     {
         if (button == null) return;
-        if (ingredientsForOrder.Count == 0) return;
-
         int percentage = Mathf.Clamp(button.percentage, 0, 100);
-
-        int lastIndex = ingredientsForOrder.Count - 1;
-        while (cookPercentagesForOrder.Count < ingredientsForOrder.Count)
-        {
-            cookPercentagesForOrder.Add(-1f);
-        }
-
-        cookPercentagesForOrder[lastIndex] = Mathf.Clamp(percentage, 0, 100);
-
-        string[] orderLines = orderText.Split('\n');
-        if (lastIndex < orderLines.Length)
-        {
-            orderLines[lastIndex] = $"{ingredientsForOrder[lastIndex].IngredientName} ({percentage}%)";
-            orderText = string.Join("\n", orderLines);
-            text.text = orderText;
-            UpdateOrderTextServerRpc(orderText);
-        }
+        SetLastCookPercentageServerRpc(percentage);
     }
 
     [ServerRpc(RequireOwnership = false)]
-    void UpdateOrderTextServerRpc(string newText)
+    private void AddIngredientServerRpc(string ingredientName)
     {
-        UpdateOrderTextClientRpc(newText);
+        if (string.IsNullOrWhiteSpace(ingredientName)) return;
+
+        serverIngredientNames.Add(ingredientName);
+        serverCookPercentages.Add(-1f);
+        RefreshServerOrderText();
     }
 
-    [ClientRpc]
-    void UpdateOrderTextClientRpc(string newText)
+    [ServerRpc(RequireOwnership = false)]
+    private void RemoveLastIngredientServerRpc()
     {
-        text.text = newText;
+        if (serverIngredientNames.Count == 0) return;
+
+        serverIngredientNames.RemoveAt(serverIngredientNames.Count - 1);
+        serverCookPercentages.RemoveAt(serverCookPercentages.Count - 1);
+        RefreshServerOrderText();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void SetLastCookPercentageServerRpc(int percentage)
+    {
+        if (serverCookPercentages.Count == 0) return;
+        serverCookPercentages[serverCookPercentages.Count - 1] = Mathf.Clamp(percentage, 0, 100);
+        RefreshServerOrderText();
+    }
+
+    private void RefreshServerOrderText()
+    {
+        var lines = new List<string>();
+
+        for (int i = 0; i < serverIngredientNames.Count; i++)
+        {
+            float percentage = i < serverCookPercentages.Count
+                ? serverCookPercentages[i]
+                : -1f;
+
+            lines.Add(percentage >= 0f
+                ? $"{serverIngredientNames[i]} ({percentage:0}%)"
+                : serverIngredientNames[i]);
+        }
+
+        orderText = string.Join("\n", lines);
+        networkOrderText.Value = new FixedString4096Bytes(orderText);
+    }
+
+    private void OnOrderTextChanged(FixedString4096Bytes previousValue, FixedString4096Bytes newValue)
+    {
+        ApplyOrderText(newValue.ToString());
+    }
+
+    private void ApplyOrderText(string newText)
+    {
+        orderText = newText;
+        if (text != null) text.text = newText;
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -111,6 +135,21 @@ public class POS : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     void SubmitOrderServerRpc()
     {
+        if (serverIngredientNames.Count == 0) return;
+
+        var names = new List<string>();
+        for (int i = 0; i < serverIngredientNames.Count; i++)
+        {
+            float percentage = serverCookPercentages[i];
+            names.Add(percentage >= 0f
+                ? $"{serverIngredientNames[i]} ({percentage:0}%)"
+                : serverIngredientNames[i]);
+        }
+
+        RegisterTest.Instance.NotifyOrderSubmittedServerRpc(string.Join(",", names));
+        serverIngredientNames.Clear();
+        serverCookPercentages.Clear();
+        RefreshServerOrderText();
         UpdatePanelClientRpc(false, true);
     }
 
@@ -123,10 +162,10 @@ public class POS : NetworkBehaviour
 
     public void ResetToStartShift()
     {
-        ingredientsForOrder.Clear();
-        cookPercentagesForOrder.Clear();
-        orderText = "";
-        text.text = orderText;
+        if (!IsServer) return;
+        serverIngredientNames.Clear();
+        serverCookPercentages.Clear();
+        RefreshServerOrderText();
         UpdatePanelClientRpc(true, false);
     }
 
