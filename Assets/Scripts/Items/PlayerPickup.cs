@@ -40,7 +40,16 @@ public class PlayerPickup : NetworkBehaviour
     {
         if (!IsOwner && playerCamera != null)
         {
-            playerCamera.gameObject.SetActive(false);
+            if (TryGetComponent(out PlayerVehicleDriver driver))
+            {
+                // Keep the driver's camera behaviour in NGO's spawn layout on every peer.
+                playerCamera.enabled = false;
+                if (playerCamera.TryGetComponent(out AudioListener listener)) listener.enabled = false;
+            }
+            else
+            {
+                playerCamera.gameObject.SetActive(false);
+            }
         }
     }
 
@@ -155,6 +164,7 @@ public class PlayerPickup : NetworkBehaviour
     private bool PerformPickUp(Item item)
     {
         if (!IsServer) return false;
+        if (TryGetComponent(out PlayerVehicleDriver driver) && driver.IsSeated) return false;
         if (item == null) return false;
         if (heldItem != null) return false;
 

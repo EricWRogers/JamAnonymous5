@@ -283,6 +283,7 @@ public class PlayerInteraction : NetworkBehaviour
 
     private void OnDisable()
     {
+        CancelHoldInteract();
         if (inputs != null)
         {
             inputs.Player.Disable();

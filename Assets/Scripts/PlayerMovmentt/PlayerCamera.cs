@@ -20,6 +20,13 @@ public class PlayerCamera : NetworkBehaviour
     private float rotationX = 0f; // up/down (camera only)
     private float rotationY = 0f; // left/right (whole player)
 
+    public void ResetLookToCurrentPose()
+    {
+        if (player == null) return;
+        rotationY = player.eulerAngles.y;
+        rotationX = Mathf.DeltaAngle(0f, transform.localEulerAngles.x);
+    }
+
     void Awake()
     {
         inputs = new InputSystem_Actions();
@@ -42,6 +49,7 @@ public class PlayerCamera : NetworkBehaviour
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        ResetLookToCurrentPose();
     }
 
 
