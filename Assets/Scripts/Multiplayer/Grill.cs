@@ -34,6 +34,11 @@ public class Grill : NetworkBehaviour, IInteractable
     public bool HasCookingItem => GetOccupiedSlotCount() > 0;
     public bool HasAvailableSlot => FindFirstAvailableSlot() >= 0;
 
+    public IReadOnlyList<FoodIngredient> GetCookingIngredients()
+    {
+        return cookingIngredients;
+    }
+
     public override void OnNetworkSpawn()
     {
         cookingItemIds.OnListChanged += OnCookingSlotsChanged;

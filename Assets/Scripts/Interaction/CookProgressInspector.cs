@@ -33,7 +33,20 @@ public class CookProgressInspector : MonoBehaviour
 
     private void Update()
     {
-        if (!IsLocalPlayer() || Keyboard.current == null || !Keyboard.current.tabKey.isPressed)
+        if (!IsLocalPlayer())
+        {
+            SetVisible(false);
+            return;
+        }
+
+        FoodIngredient ingredientInSight = FindIngredientInSight();
+        Grill grillInSight = FindGrillInSight();
+        if (TryShowGrillInfo(grillInSight))
+        {
+            return;
+        }
+
+        if (Keyboard.current == null || !Keyboard.current.tabKey.isPressed)
         {
             SetVisible(false);
             return;
@@ -50,7 +63,7 @@ public class CookProgressInspector : MonoBehaviour
 
         if (!shouldShow)
         {
-            shouldShow = TryShowIngredientInfo(FindIngredientInSight());
+            shouldShow = TryShowIngredientInfo(ingredientInSight);
         }
 
         if (!shouldShow)
@@ -58,6 +71,64 @@ public class CookProgressInspector : MonoBehaviour
             SetVisible(false);
             return;
         }
+    }
+
+    private bool TryShowGrillInfo(Grill grill)
+    {
+        if (grill == null)
+        {
+            return false;
+        }
+
+        IReadOnlyList<FoodIngredient> ingredients = grill.GetCookingIngredients();
+        StringBuilder info = new();
+        int displayedIngredientCount = 0;
+
+        for (int i = 0; i < ingredients.Count; i++)
+        {
+            FoodIngredient ingredient = ingredients[i];
+            if (ingredient == null || !ingredient.CanBeCooked || ingredient.Definition == null)
+            {
+                continue;
+            }
+
+            if (info.Length > 0) info.AppendLine();
+            info.Append(ingredient.Definition.IngredientName);
+            info.Append(" (Slot ");
+            info.Append(i + 1);
+            info.Append("): ");
+            info.Append(Mathf.RoundToInt(ingredient.CookProgress * 100f));
+            info.Append('%');
+            displayedIngredientCount++;
+        }
+
+        if (displayedIngredientCount == 0) return false;
+
+        SetVisible(true);
+        cookProgressText.text = info.ToString();
+        RefreshLayout();
+        return true;
+    }
+
+    private Grill FindGrillInSight()
+    {
+        if (playerCamera == null) return null;
+
+        Ray ray = playerCamera.ScreenPointToRay(
+            new Vector3(Screen.width / 2f, Screen.height / 2f, 0f)
+        );
+
+        if (!Physics.Raycast(
+                ray,
+                out RaycastHit hit,
+                inspectRange,
+                inspectLayers,
+                QueryTriggerInteraction.Ignore))
+        {
+            return null;
+        }
+
+        return hit.collider.GetComponentInParent<Grill>();
     }
 
     private FoodIngredient FindIngredientInSight()
@@ -68,12 +139,26 @@ public class CookProgressInspector : MonoBehaviour
             new Vector3(Screen.width / 2f, Screen.height / 2f, 0f)
         );
 
-        if (!Physics.Raycast(ray, out RaycastHit hit, inspectRange, inspectLayers, QueryTriggerInteraction.Ignore))
+        RaycastHit[] hits = Physics.RaycastAll(
+            ray,
+            inspectRange,
+            inspectLayers,
+            QueryTriggerInteraction.Ignore
+        );
+
+        FoodIngredient closestIngredient = null;
+        float closestDistance = float.MaxValue;
+
+        for (int i = 0; i < hits.Length; i++)
         {
-            return null;
+            FoodIngredient ingredient = hits[i].collider.GetComponentInParent<FoodIngredient>();
+            if (ingredient == null || hits[i].distance >= closestDistance) continue;
+
+            closestIngredient = ingredient;
+            closestDistance = hits[i].distance;
         }
 
-        return hit.collider.GetComponentInParent<FoodIngredient>();
+        return closestIngredient;
     }
 
     private ServingTray FindTrayInSight()
@@ -175,7 +260,9 @@ public class CookProgressInspector : MonoBehaviour
 
         if (rootRect == null) return;
 
-        cookProgressText.enableWordWrapping = maximumWidth > 0f;
+        cookProgressText.textWrappingMode = maximumWidth > 0f
+            ? TextWrappingModes.Normal
+            : TextWrappingModes.NoWrap;
         cookProgressText.ForceMeshUpdate();
 
         float textWidth = cookProgressText.preferredWidth;
