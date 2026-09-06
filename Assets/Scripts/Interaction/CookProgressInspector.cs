@@ -40,8 +40,7 @@ public class CookProgressInspector : MonoBehaviour
         }
 
         FoodIngredient ingredientInSight = FindIngredientInSight();
-        Grill grillInSight = FindGrillInSight();
-        if (TryShowGrillInfo(grillInSight))
+        if (TryShowGrillIngredientInfo(ingredientInSight))
         {
             return;
         }
@@ -73,41 +72,21 @@ public class CookProgressInspector : MonoBehaviour
         }
     }
 
-    private bool TryShowGrillInfo(Grill grill)
+    private bool TryShowGrillIngredientInfo(FoodIngredient ingredient)
     {
-        if (grill == null)
+        if (ingredient == null || !ingredient.CanBeCooked || !ingredient.IsOnGrill)
         {
             return false;
         }
 
-        IReadOnlyCollection<FoodIngredient> ingredients = grill.GetCookingIngredients();
-        StringBuilder info = new();
-        int displayedIngredientCount = 0;
-
-        foreach (FoodIngredient ingredient in ingredients)
-        {
-            if (ingredient == null || !ingredient.CanBeCooked || ingredient.Definition == null)
-            {
-                continue;
-            }
-
-            if (info.Length > 0) info.AppendLine();
-            info.Append(ingredient.Definition.IngredientName);
-            info.Append(": ");
-            info.Append(Mathf.RoundToInt(ingredient.CookProgress * 100f));
-            info.Append('%');
-            displayedIngredientCount++;
-        }
-
-        if (displayedIngredientCount == 0) return false;
-
         SetVisible(true);
-        cookProgressText.text = info.ToString();
+        cookProgressText.text = $"{ingredient.Definition.IngredientName}: " +
+            $"{Mathf.RoundToInt(ingredient.CookProgress * 100f)}%";
         RefreshLayout();
         return true;
     }
 
-    private Grill FindGrillInSight()
+    private FoodIngredient FindIngredientInSight()
     {
         if (playerCamera == null) return null;
 
@@ -125,37 +104,7 @@ public class CookProgressInspector : MonoBehaviour
             return null;
         }
 
-        return hit.collider.GetComponentInParent<Grill>();
-    }
-
-    private FoodIngredient FindIngredientInSight()
-    {
-        if (playerCamera == null) return null;
-
-        Ray ray = playerCamera.ScreenPointToRay(
-            new Vector3(Screen.width / 2f, Screen.height / 2f, 0f)
-        );
-
-        RaycastHit[] hits = Physics.RaycastAll(
-            ray,
-            inspectRange,
-            inspectLayers,
-            QueryTriggerInteraction.Ignore
-        );
-
-        FoodIngredient closestIngredient = null;
-        float closestDistance = float.MaxValue;
-
-        for (int i = 0; i < hits.Length; i++)
-        {
-            FoodIngredient ingredient = hits[i].collider.GetComponentInParent<FoodIngredient>();
-            if (ingredient == null || hits[i].distance >= closestDistance) continue;
-
-            closestIngredient = ingredient;
-            closestDistance = hits[i].distance;
-        }
-
-        return closestIngredient;
+        return hit.collider.GetComponentInParent<FoodIngredient>();
     }
 
     private ServingTray FindTrayInSight()

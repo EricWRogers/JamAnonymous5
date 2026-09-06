@@ -31,11 +31,6 @@ public class Grill : NetworkBehaviour
             if (box.isTrigger) { cookingArea = box; break; }
     }
 
-    public IReadOnlyCollection<FoodIngredient> GetCookingIngredients()
-    {
-        return cookingIngredients;
-    }
-
     public override void OnNetworkSpawn()
     {
         cookingItemIds.OnListChanged += OnCookingChanged;
