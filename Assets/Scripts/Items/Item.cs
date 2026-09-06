@@ -307,7 +307,8 @@ public class Item : NetworkBehaviour, IInteractable
             }
             else
             {
-                rb.isKinematic = false;
+                rb.isKinematic = IsSpawned && networkTransform != null &&
+                    (networkTransform.IsServerAuthoritative() ? !IsServer : !IsOwner);
                 rb.interpolation = defaultInterpolation;
             }
         }

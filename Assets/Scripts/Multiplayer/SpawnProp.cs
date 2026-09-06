@@ -10,6 +10,11 @@ public class SpawnProp : MonoBehaviour
     [SerializeField] private int itemCost = 10;
     [SerializeField] private float restockDelay = 0.25f;
     [SerializeField] private bool logDebugMessages = true;
+    [Header("Ingredient Boxes")]
+    [SerializeField, Min(1)] private int ingredientsPerBox = 20;
+    private IngredientBox ingredientBox;
+    private bool UsesIngredientBox => itemPrefab != null &&
+        (itemPrefab.GetComponent<FoodIngredient>() != null || itemPrefab.GetComponent<IngredientBox>() != null);
 
     private Item spawnedItem;
     private float nextRestockTime;
@@ -38,6 +43,15 @@ public class SpawnProp : MonoBehaviour
     private void Update()
     {
         if (!IsServerActive()) return;
+        if (UsesIngredientBox)
+        {
+            if (ingredientBox != null && ingredientBox.IsPurchased &&
+                (ingredientBox.GetComponent<Item>().IsHeld ||
+                 Vector3.Distance(ingredientBox.transform.position, itemSpawnPoint.position) > 0.4f))
+                ingredientBox = null;
+            if (ingredientBox == null && Time.time >= nextRestockTime) TryRestock();
+            return;
+        }
         if (Time.time < nextRestockTime) return;
 
         if (isRestockingBlocked)
@@ -61,6 +75,7 @@ public class SpawnProp : MonoBehaviour
     private void OnTriggerExit(Collider other)
     {
         if (!IsServerActive()) return;
+        if (UsesIngredientBox) return;
         if (spawnedItem == null) return;
 
         Item item = other.GetComponentInParent<Item>();
@@ -81,6 +96,38 @@ public class SpawnProp : MonoBehaviour
         if (spawnedItem != null)
         {
             return false;
+        }
+
+        if (UsesIngredientBox)
+        {
+            if (ingredientBox != null) return false;
+            nextRestockTime = Time.time + 1f;
+            IngredientBox configuredBox = itemPrefab.GetComponent<IngredientBox>();
+            if (configuredBox != null)
+            {
+                if (!configuredBox.HasValidContents)
+                {
+                    Debug.LogError("The shelf's box prefab needs a valid Ingredient Prefab assigned.", this);
+                    return false;
+                }
+                ingredientBox = Instantiate(configuredBox, itemSpawnPoint.position, itemSpawnPoint.rotation);
+                ingredientBox.NetworkObject.Spawn(destroyWithScene: true);
+                return true;
+            }
+            if (itemPrefab.GetComponent<Item>() == null || itemPrefab.GetComponent<NetworkObject>() == null)
+            {
+                Debug.LogError("Ingredient stock requires an Item and NetworkObject on the ingredient prefab root.", this);
+                return false;
+            }
+            GameObject boxPrefab = Resources.Load<GameObject>("IngredientBox");
+            if (boxPrefab == null) { Debug.LogError("Missing Resources/IngredientBox prefab.", this); return false; }
+            GameObject box = Instantiate(boxPrefab, itemSpawnPoint.position, itemSpawnPoint.rotation);
+            ingredientBox = box.GetComponent<IngredientBox>();
+            int count = Mathf.Clamp(ingredientsPerBox, 1, 999);
+            int cost = (int)System.Math.Min(int.MaxValue, (long)Mathf.Max(0, itemCost) * count);
+            ingredientBox.Configure(itemPrefab, count, cost);
+            box.GetComponent<NetworkObject>().Spawn(destroyWithScene: true);
+            return true;
         }
 
         if (isRestockingBlocked)

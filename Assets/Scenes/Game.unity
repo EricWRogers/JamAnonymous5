@@ -2272,6 +2272,7 @@ MonoBehaviour:
   itemCost: 3
   restockDelay: 0.25
   logDebugMessages: 1
+  ingredientsPerBox: 20
 --- !u!114 &351874608
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3063,6 +3064,54 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1 &462319529
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 462319531}
+  - component: {fileID: 462319530}
+  m_Layer: 0
+  m_Name: FoodBoxSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &462319530
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 462319529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c6c8bf25b734a78824edc42a1a53113, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IngredientBoxSpawner
+  boxPrefab: {fileID: 7748143503373830537, guid: 35937893ad1fa2e46a370e480fea319e, type: 3}
+  spawnPoint: {fileID: 462319531}
+  restockDelay: 1
+  removalDistance: 0.4
+--- !u!4 &462319531
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 462319529}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -70.1, y: 1.166, z: -5.84}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &466616402
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4340,6 +4389,7 @@ MonoBehaviour:
   itemCost: 3
   restockDelay: 0.25
   logDebugMessages: 1
+  ingredientsPerBox: 20
 --- !u!114 &716460618
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5225,6 +5275,7 @@ MonoBehaviour:
   itemCost: 3
   restockDelay: 0.25
   logDebugMessages: 1
+  ingredientsPerBox: 20
 --- !u!114 &875376193
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10663,6 +10714,7 @@ MonoBehaviour:
   itemCost: 3
   restockDelay: 0.25
   logDebugMessages: 1
+  ingredientsPerBox: 20
 --- !u!114 &2056836004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11313,4 +11365,5 @@ SceneRoots:
   - {fileID: 1834907020}
   - {fileID: 1652832351}
   - {fileID: 1132137414}
+  - {fileID: 462319531}
   - {fileID: 241441409}
