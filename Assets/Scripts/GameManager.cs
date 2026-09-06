@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Collections;
 using Unity.Netcode;  
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
@@ -7,7 +8,13 @@ public class GameManager : NetworkBehaviour
 {
     public static GameManager Instance;
 
-    public string JoinCode;
+    private readonly NetworkVariable<FixedString64Bytes> networkJoinCode = new(
+        new FixedString64Bytes(),
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    public string JoinCode => networkJoinCode.Value.ToString();
 
     public NetworkVariable<float> shiftTimer = new();
     public NetworkVariable<bool> shiftStarted = new();
@@ -56,7 +63,8 @@ public class GameManager : NetworkBehaviour
 
     public void SetJoinCode(string code)
     {
-        JoinCode = code;
+        if (!IsServer) return;
+        networkJoinCode.Value = new FixedString64Bytes(code ?? string.Empty);
     }
 
 

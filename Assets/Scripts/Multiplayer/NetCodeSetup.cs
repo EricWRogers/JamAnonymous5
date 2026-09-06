@@ -14,11 +14,14 @@ public class NetCodeSetup : MonoBehaviour
 
     public TMP_InputField inputField;
 
+    private bool isJoinCodeInputVisible;
+
     private UnityTransport transport;
 
     public GameObject gameManagerPrefab;
     async void Start()
     {
+        SetJoinCodeInputVisibility(false);
         transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
 
         //initUnity services (required before using authentication/relay)
@@ -88,5 +91,28 @@ public class NetCodeSetup : MonoBehaviour
         
         //Client does not need the load scene. It will automagically load into whatever scene the host is in.
         Debug.Log("Client started");
+    }
+
+    public void ToggleJoinCodeInputVisibility()
+    {
+        if (inputField == null) return;
+
+        SetJoinCodeInputVisibility(inputField.inputType == TMP_InputField.InputType.Password);
+    }
+
+    public void SetJoinCodeInputVisibility(bool visible)
+    {
+        if (inputField == null) return;
+
+        string currentText = inputField.text;
+        isJoinCodeInputVisible = visible;
+        inputField.contentType = visible
+            ? TMP_InputField.ContentType.Standard
+            : TMP_InputField.ContentType.Password;
+        inputField.inputType = visible
+            ? TMP_InputField.InputType.Standard
+            : TMP_InputField.InputType.Password;
+        inputField.SetTextWithoutNotify(currentText);
+        inputField.ForceLabelUpdate();
     }
 }

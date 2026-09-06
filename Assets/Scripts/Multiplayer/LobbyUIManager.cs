@@ -14,6 +14,8 @@ public class LobbyUIManager : NetworkBehaviour
 
     public TMP_Text joinCodeText;
 
+    private bool isJoinCodeVisible;
+
     void Awake()
     {
         clientIds = new NetworkList<ulong>();
@@ -21,7 +23,7 @@ public class LobbyUIManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        joinCodeText.text = "CODE: " + GameManager.Instance.JoinCode;
+        SetJoinCodeVisibility(false);
         //We will be watching this on all clients so we know to update.
         clientIds.OnListChanged += OnListChanged;
 
@@ -39,6 +41,35 @@ public class LobbyUIManager : NetworkBehaviour
         }
 
         Rebuild();
+    }
+
+    public void ToggleJoinCodeVisibility()
+    {
+        SetJoinCodeVisibility(!isJoinCodeVisible);
+    }
+
+    public void CopyJoinCode()
+    {
+        if (GameManager.Instance == null) return;
+
+        GUIUtility.systemCopyBuffer = GameManager.Instance.JoinCode;
+    }
+
+    private void SetJoinCodeVisibility(bool visible)
+    {
+        isJoinCodeVisible = visible;
+
+        if (joinCodeText == null) return;
+
+        string code = GameManager.Instance != null ? GameManager.Instance.JoinCode : string.Empty;
+        joinCodeText.text = visible
+            ? $"CODE: {code}"
+            : $"CODE: {MaskCode(code)}";
+    }
+
+    private static string MaskCode(string code)
+    {
+        return string.IsNullOrEmpty(code) ? "------" : new string('*', code.Length);
     }
 
     public override void OnNetworkDespawn()
