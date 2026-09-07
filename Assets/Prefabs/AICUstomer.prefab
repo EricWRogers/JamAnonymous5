@@ -185,6 +185,7 @@ GameObject:
   - component: {fileID: 221826829969986616}
   - component: {fileID: 8193550752470300080}
   - component: {fileID: 2388400018613944289}
+  - component: {fileID: 1781801074888298745}
   m_Layer: 0
   m_Name: Capsule
   m_TagString: Untagged
@@ -287,6 +288,33 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!54 &1781801074888298745
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4867742003429549189}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
 --- !u!1 &5631027344702625118
 GameObject:
   m_ObjectHideFlags: 0
@@ -336,7 +364,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1094132047
+  GlobalObjectIdHash: 2807620891
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -443,6 +471,11 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 7330954628f03612a8e46715c71fcd09, type: 2}
   orderUI: {fileID: 7238366814083974328}
   eatingDuration: 10
+  chanceToEnter: 0.75
+  entryRetryCooldown: 5
+  burgerCooldown: 60
+  sidewalkAreaName: Sidewalk
+  sidewalkRoamRadius: 20
   foodOffset: {x: 1, y: 1, z: 0.5}
   customerRenderer: {fileID: 8193550752470300080}
   flatRatePerIngredient: 2

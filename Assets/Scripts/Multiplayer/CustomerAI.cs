@@ -42,8 +42,19 @@ public class CustomerAI : NetworkBehaviour
 
     private NavMeshAgent agent;
     private Seat claimedSeat;
+    private bool hasDecidedToEnter;
+    public bool IsInWaitingForFoodQueue { get; set; }
 
     public float eatingDuration = 10f;
+    [Range(0f, 1f)] public float chanceToEnter = 0.5f;
+    [Min(0.1f)] public float entryRetryCooldown = 5f;
+    public float burgerCooldown = 60f;
+    private float nextBurgerTime;
+    private float nextEntryAttemptTime;
+
+    [Header("Sidewalk Roaming")]
+    public string sidewalkAreaName = "Sidewalk";
+    public float sidewalkRoamRadius = 20f;
 
     
     [Header("Food Placement")]
@@ -56,16 +67,20 @@ public class CustomerAI : NetworkBehaviour
     [Header("Food Scoring")]
     public int flatRatePerIngredient = 2;
 
+    private void Awake()
+    {
+        agent = GetComponent<NavMeshAgent>();
+        agent.enabled = false;
+    }
+
    
     public override void OnNetworkSpawn()
     {
         if (!IsHost) return;
 
-        agent = GetComponent<NavMeshAgent>();
+        agent.enabled = true;
         customerId.Value = (ulong)Random.Range(1000, 9999);
         GenerateOrder();
-
-        RegisterTest.Instance.JoinQueue(this);
 
         Color randomColor = Random.ColorHSV(0f, 1f, 0.5f, 1f, 0.7f, 1f);
         customerRenderer.material.color = randomColor;
@@ -73,6 +88,28 @@ public class CustomerAI : NetworkBehaviour
 
 
         SetState(CustomerState.WalkingToRegister);
+        SetSidewalkMovement();
+        ChooseSidewalkDestination();
+    }
+
+    public void TryEnterRestaurant()
+    {
+        if (!IsServer || hasDecidedToEnter || State != CustomerState.WalkingToRegister ||
+            GameManager.Instance == null || !GameManager.Instance.shiftStarted.Value ||
+            Time.time < nextBurgerTime || Time.time < nextEntryAttemptTime)
+            return;
+
+        if (Random.value <= chanceToEnter)
+        {
+            hasDecidedToEnter = true;
+            agent.areaMask = NavMesh.AllAreas;
+            RegisterTest.Instance.JoinQueue(this);
+            SetState(CustomerState.InQueue);
+        }
+        else
+        {
+            nextEntryAttemptTime = Time.time + entryRetryCooldown;
+        }
     }
 
     void GenerateOrder()
@@ -186,7 +223,7 @@ public class CustomerAI : NetworkBehaviour
                 }
 
                 agent.SetDestination(CustomerSpawner.Instance.exitPoint.position);
-                StartCoroutine(DestroyWhenArrived());
+                StartCoroutine(ReturnToSidewalkWhenArrived());
                 break;
         }
     }
@@ -198,8 +235,8 @@ public class CustomerAI : NetworkBehaviour
         switch (State)
         {
             case CustomerState.WalkingToRegister:
-                if (ArrivedAt(RegisterTest.Instance.queueStart.position))
-                    SetState(CustomerState.InQueue);
+                if (ArrivedAt(agent.destination))
+                    ChooseSidewalkDestination();
                 break;
 
             case CustomerState.InQueue:
@@ -213,8 +250,16 @@ public class CustomerAI : NetworkBehaviour
                 if (RegisterTest.Instance.OrderSubmitted)
                 {
                     RegisterTest.Instance.ResetOrder();
-                    ClaimSeat();
-                    SetState(CustomerState.WalkingToSeat);
+                    if (ClaimSeat())
+                    {
+                        SetState(CustomerState.WalkingToSeat);
+                    }
+                    else
+                    {
+                        RegisterTest.Instance.LeaveQueue(this);
+                        SetState(CustomerState.WaitingForFood);
+                        RegisterTest.Instance.JoinWaitingForFoodQueue(this);
+                    }
                 }
                 break;
 
@@ -232,7 +277,7 @@ public class CustomerAI : NetworkBehaviour
         }
     }
 
-    void ClaimSeat()
+    bool ClaimSeat()
     {
         var seats = FindObjectsByType<Seat>(FindObjectsSortMode.None);
         Debug.Log($"Found {seats.Length} seats");
@@ -245,12 +290,38 @@ public class CustomerAI : NetworkBehaviour
                 claimedSeat = seat;
                 seat.Claim();
                 Debug.Log($"Claimed seat {seat.name}");
-                return;
+                return true;
             }
         }
         
-        Debug.Log("No seat found, leaving");
-        SetState(CustomerState.Leaving);
+        Debug.Log("No seat found, joining the waiting-for-food queue");
+        return false;
+    }
+
+    void SetSidewalkMovement()
+    {
+        int areaIndex = NavMesh.GetAreaFromName(sidewalkAreaName);
+        if (areaIndex < 0)
+        {
+            Debug.LogWarning($"NavMesh area '{sidewalkAreaName}' was not found. Using all areas.");
+            agent.areaMask = NavMesh.AllAreas;
+            return;
+        }
+
+        agent.areaMask = 1 << areaIndex;
+    }
+
+    void ChooseSidewalkDestination()
+    {
+        Vector2 offset = Random.insideUnitCircle * sidewalkRoamRadius;
+        Vector3 candidate = transform.position + new Vector3(offset.x, 0f, offset.y);
+        int areaIndex = NavMesh.GetAreaFromName(sidewalkAreaName);
+        int sidewalkMask = areaIndex >= 0 ? 1 << areaIndex : NavMesh.AllAreas;
+
+        if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, sidewalkRoamRadius, sidewalkMask))
+            agent.SetDestination(hit.position);
+        else if (CustomerEntryTrigger.Instance != null)
+            agent.SetDestination(CustomerEntryTrigger.Instance.transform.position);
     }
 
     bool ArrivedAt(Vector3 destination)
@@ -267,16 +338,24 @@ public class CustomerAI : NetworkBehaviour
         SetState(CustomerState.Leaving);
     }
 
-    IEnumerator DestroyWhenArrived()
+    IEnumerator ReturnToSidewalkWhenArrived()
     {
         yield return new WaitUntil(() => ArrivedAt(CustomerSpawner.Instance.exitPoint.position));
-        if (IsHost) GetComponent<NetworkObject>().Despawn();
+        if (IsHost)
+        {
+            nextBurgerTime = Time.time + burgerCooldown;
+            hasDecidedToEnter = false;
+            SetState(CustomerState.WalkingToRegister);
+            SetSidewalkMovement();
+            ChooseSidewalkDestination();
+        }
     }
 
     public void DeliverFood()
     {
-    if (State != CustomerState.WaitingForFood) return;
-    SetState(CustomerState.Eating);
+        if (State != CustomerState.WaitingForFood) return;
+        if (IsInWaitingForFoodQueue && !RegisterTest.Instance.IsFirstWaitingForFoodCustomer(this)) return;
+        SetState(CustomerState.Eating);
     }
 
 
@@ -307,6 +386,9 @@ public class CustomerAI : NetworkBehaviour
 
     public void ReceiveFood(Item tray)
     {
+        if (IsInWaitingForFoodQueue)
+            RegisterTest.Instance.LeaveWaitingForFoodQueue(this);
+
         deliveredTray = tray;
 
         float score = ScoreOrder(tray);

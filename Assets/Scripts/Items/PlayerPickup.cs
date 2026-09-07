@@ -473,6 +473,8 @@ public class PlayerPickup : NetworkBehaviour
         CustomerAI customer = netObj.GetComponent<CustomerAI>();
         if (customer == null) return;
         if (customer.State != CustomerAI.CustomerState.WaitingForFood) return;
+        if (customer.IsInWaitingForFoodQueue &&
+            !RegisterTest.Instance.IsFirstWaitingForFoodCustomer(customer)) return;
 
         float distance = Vector3.Distance(transform.position, customer.transform.position);
         if (distance > pickupRange * 2f + 1f)

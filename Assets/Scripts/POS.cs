@@ -174,4 +174,13 @@ public class POS : NetworkBehaviour
         if (!NetworkManager.Singleton.IsHost) return;
         GameManager.Instance.EndShiftServerRpc();
     }
+
+    public void CustomerEntered(Collider other)
+    {
+        if (!IsServer) return;
+
+        CustomerAI customer = other.GetComponentInParent<CustomerAI>();
+        if (customer != null)
+            customer.TryEnterRestaurant();
+    }
 }
