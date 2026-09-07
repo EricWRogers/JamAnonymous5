@@ -570,8 +570,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 910000001}
   - component: {fileID: 3295485989464305769}
+  - component: {fileID: 910000001}
   - component: {fileID: 6225081333855752583}
   - component: {fileID: 3614154740119494269}
   - component: {fileID: 5392660813867537761}
@@ -613,6 +613,19 @@ Transform:
   - {fileID: 5765021556562259416}
   m_Father: {fileID: 4919750503158927645}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &910000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1124121359851112903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13fca276c86c40a894b68d495eee558f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerTruckPassenger
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!95 &6225081333855752583
 Animator:
   serializedVersion: 7
@@ -776,6 +789,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerPickup
   ShowTopMostFoldoutHeaderGroup: 1
   pickupRange: 2.5
+  throwSpeed: 8
+  maxThrowSpeed: 20
+  throwChargeDuration: 2
   holdPoint: {fileID: 5765021556562259416}
   playerCamera: {fileID: 6435271251568795612}
   pickableLayer:
@@ -1057,6 +1073,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerVehicleDriver
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &910000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1124121359851112903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8511a798308b41eb853706bd41fbb78e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerNameLabel
+  offset: {x: 0, y: 2.25, z: 0}
+  fontSize: 2.5
+  textColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &1323932978890463999
 GameObject:
   m_ObjectHideFlags: 0
@@ -1779,7 +1810,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 980144791
+  GlobalObjectIdHash: 4215196877
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -2919,26 +2950,3 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5816486396722604975, guid: 8415a2d930dc99c46a5203c4404030d0, type: 3}
   m_PrefabInstance: {fileID: 4034195756772390973}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &910000001
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_GameObject: {fileID: 1124121359851112903}
-  m_Enabled: 1
-  m_Script: {fileID: 11500000, guid: 13fca276c86c40a894b68d495eee558f, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerTruckPassenger
---- !u!114 &910000002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1124121359851112903}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8511a798308b41eb853706bd41fbb78e, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerNameLabel
-  offset: {x: 0, y: 2.25, z: 0}
-  fontSize: 2.5
-  textColor: {r: 1, g: 1, b: 1, a: 1}

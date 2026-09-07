@@ -11,6 +11,15 @@ public class PlayerPickup : NetworkBehaviour
 
     [Header("Throwing")]
     [SerializeField, Min(0f)] private float throwSpeed = 8f;
+    [SerializeField, Min(0f)] private float maxThrowSpeed = 20f;
+    [SerializeField, Min(0.01f)] private float throwChargeDuration = 1.25f;
+
+    private ulong chargingItemId = NoItem;
+    private float throwChargeStartedAt;
+    public bool IsChargingThrow => chargingItemId != NoItem && chargingItemId == heldItemNetId.Value;
+    public float ThrowCharge01 => IsChargingThrow
+        ? Mathf.Clamp01((Time.time - throwChargeStartedAt) / Mathf.Max(0.01f, throwChargeDuration))
+        : 0f;
 
     [Header("References")]
     public Transform holdPoint;
@@ -62,24 +71,25 @@ public class PlayerPickup : NetworkBehaviour
     {
         if (!IsOwner || !IsSpawned || NetworkSessionMenu.IsGameMenuOpen || !applicationFocused)
         {
+            CancelThrowCharge();
             isAimingPlacement = false;
             placementPreview.Hide();
             return;
         }
         if (!IsHoldingItemLocally || !TryResolveHeldItem() || playerCamera == null)
         {
+            CancelThrowCharge();
             isAimingPlacement = false;
             placementPreview.Clear();
             return;
         }
-        if (inputs.Player.Throw.WasPressedThisFrame())
+        if (chargingItemId != heldItemNetId.Value) CancelThrowCharge();
+        if (inputs.Player.Drop.WasPressedThisFrame())
         {
-            isAimingPlacement = false;
-            placementPreview.Hide();
-            RequestThrowServerRpc(heldItemNetId.Value, playerCamera.transform.forward);
-            return;
+            CancelThrowCharge();
+            isAimingPlacement = true;
         }
-        if (inputs.Player.Drop.WasPressedThisFrame()) isAimingPlacement = true;
+        else if (UpdateThrowCharge()) return;
         bool releasePlacement = isAimingPlacement && inputs.Player.Drop.WasReleasedThisFrame();
         if (!isAimingPlacement || (!inputs.Player.Drop.IsPressed() && !releasePlacement))
         {
@@ -103,6 +113,35 @@ public class PlayerPickup : NetworkBehaviour
                     surface != null ? surface.transform.InverseTransformDirection(ray.direction) : ray.direction,
                     surface != null ? surface.transform.InverseTransformPoint(position) : position);
         }
+    }
+
+    private bool UpdateThrowCharge()
+    {
+        if (inputs.Player.Throw.WasPressedThisFrame())
+        {
+            chargingItemId = heldItemNetId.Value;
+            throwChargeStartedAt = Time.time;
+            isAimingPlacement = false;
+        }
+        if (!IsChargingThrow) return false;
+
+        placementPreview.Hide();
+        if (inputs.Player.Throw.WasReleasedThisFrame())
+        {
+            ulong itemId = chargingItemId;
+            float charge = ThrowCharge01;
+            CancelThrowCharge();
+            RequestThrowServerRpc(itemId, playerCamera.transform.forward, charge);
+        }
+        else if (!inputs.Player.Throw.IsPressed()) CancelThrowCharge();
+        return true;
+    }
+
+    private void CancelThrowCharge() => chargingItemId = NoItem;
+
+    private void OnGameMenuOpenChanged(bool open)
+    {
+        if (open) CancelThrowCharge();
     }
 
     // Called only by PlayerInteraction, so F cannot pick up and interact twice.
@@ -152,8 +191,9 @@ public class PlayerPickup : NetworkBehaviour
             placed.ServerAttachToSurface(surface, position, rotation);
     }
     [ServerRpc]
-    private void RequestThrowServerRpc(ulong expectedItem, Vector3 direction)
+    private void RequestThrowServerRpc(ulong expectedItem, Vector3 direction, float charge)
     {
+        if (float.IsNaN(charge) || float.IsInfinity(charge)) return;
         if (!enabled || expectedItem != heldItemNetId.Value || !TryResolveHeldItem()) return;
         if (TryGetComponent(out PlayerVehicleDriver driver) && driver.IsSeated) return;
         if (!ItemPlacement.IsFinite(direction) || direction.sqrMagnitude < 0.5f || direction.sqrMagnitude > 1.5f) return;
@@ -176,7 +216,10 @@ public class PlayerPickup : NetworkBehaviour
         if (ServerTryReleaseHeldItem(item, position, rotation))
         {
             Vector3 inherited = TryGetComponent(out PlayerTruckPassenger passenger) ? passenger.DepartureVelocity : Vector3.zero;
-            item.ServerApplyThrow(direction.normalized * Mathf.Max(0f, throwSpeed) + inherited, transform);
+            // The server chooses the speed and caps client-supplied charge at full power.
+            float minSpeed = Mathf.Max(0f, throwSpeed);
+            float speed = Mathf.Lerp(minSpeed, Mathf.Max(minSpeed, maxThrowSpeed), Mathf.Clamp01(charge));
+            item.ServerApplyThrow(direction.normalized * speed + inherited, transform);
         }
     }
 
@@ -384,13 +427,18 @@ public class PlayerPickup : NetworkBehaviour
 
     private void OnEnable()
     {
+        NetworkSessionMenu.GameMenuOpenChanged += OnGameMenuOpenChanged;
         if (inputs != null)
         {
             inputs.Player.Enable();
         }
     }
 
-    public override void OnNetworkDespawn() => placementPreview.Clear();
+    public override void OnNetworkDespawn()
+    {
+        CancelThrowCharge();
+        placementPreview.Clear();
+    }
 
     public override void OnDestroy()
     {
@@ -401,6 +449,8 @@ public class PlayerPickup : NetworkBehaviour
 
     private void OnDisable()
     {
+        NetworkSessionMenu.GameMenuOpenChanged -= OnGameMenuOpenChanged;
+        CancelThrowCharge();
         isAimingPlacement = false;
         placementPreview.Clear();
         if (inputs != null)
@@ -414,6 +464,7 @@ public class PlayerPickup : NetworkBehaviour
         applicationFocused = focused;
         if (!focused)
         {
+            CancelThrowCharge();
             isAimingPlacement = false;
             placementPreview.Hide();
         }
