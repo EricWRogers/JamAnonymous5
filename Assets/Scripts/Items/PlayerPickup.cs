@@ -30,6 +30,7 @@ public class PlayerPickup : NetworkBehaviour
     private InputSystem_Actions inputs;
 
     private bool IsHoldingItemLocally => heldItemNetId.Value != NoItem;
+    public bool IsCarryModifierPressed => inputs.Player.Sprint.IsPressed();
 
     private void Awake()
     {
@@ -219,6 +220,7 @@ public class PlayerPickup : NetworkBehaviour
         if (TryGetComponent(out PlayerVehicleDriver driver) && driver.IsSeated) return false;
         if (item == null) return false;
         if (heldItem != null) return false;
+        if (item.TryGetComponent(out IngredientBox box) && !box.IsPurchased) return false;
 
         if (!PrepareItemForPickUp(item))
         {

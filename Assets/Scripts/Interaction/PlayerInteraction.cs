@@ -250,6 +250,8 @@ public class PlayerInteraction : NetworkBehaviour
 
     private IInteractable GetInteractableFromHit(RaycastHit hit)
     {
+        IngredientBox box = hit.collider.GetComponentInParent<IngredientBox>();
+        if (box != null) return box;
         Item item = hit.collider.GetComponentInParent<Item>();
         if (item != null && !item.IsHeld && TryGetComponent(out PlayerPickup pickup) && !pickup.IsHoldingItem())
             return item;
