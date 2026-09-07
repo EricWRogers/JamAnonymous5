@@ -1,7 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>Stocks one configured ingredient box at a time. Only the server spawns stock.</summary>
 [DisallowMultipleComponent]
 public sealed class IngredientBoxSpawner : MonoBehaviour
 {

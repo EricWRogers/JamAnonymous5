@@ -12,6 +12,29 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
     [SerializeField, Tooltip("Networked food prefab dispensed by this box.")] private GameObject ingredientPrefab;
     [SerializeField, InspectorName("Ingredients Per Box"), Min(1), Tooltip("Number of ingredients in a newly purchased box.")] private int configuredCapacity = 20;
     [SerializeField, InspectorName("Box Price"), Min(0), Tooltip("Price for the whole box.")] private int configuredPrice;
+    [Header("Carrying")]
+    [SerializeField, Tooltip("Offset from the player's hold point: negative Y lowers the box; positive Z moves it forward.")]
+    private Vector3 carryOffset = new Vector3(0f, -0.3f, 0.4f);
+    [SerializeField, Min(0f), Tooltip("Additional vertical travel when looking up or down. Looking down lowers the box to clear the placement preview.")]
+    private float lookHeightTravel = 0.65f;
+
+    public Vector3 GetCarryOffset(PlayerPickup holder)
+    {
+        Vector3 offset = carryOffset;
+        if (holder.playerCamera != null && holder.holdPoint != null)
+        {
+            float lookHeight = Vector3.Dot(holder.playerCamera.transform.forward, holder.transform.up);
+            // Convert a player-up displacement into hold-point space, including
+            // when the hold point itself follows the camera's pitch.
+            offset += holder.holdPoint.InverseTransformVector(
+                holder.transform.up * (lookHeight * lookHeightTravel));
+        }
+        return offset;
+    }
+
+    [Header("Box Label")]
+    [SerializeField, Min(0f), Tooltip("World-space gap between the top of the box and its label.")]
+    private float labelClearance = 0.08f;
     public bool HasValidContents => ingredientPrefab != null &&
         ingredientPrefab.GetComponent<FoodIngredient>() != null &&
         ingredientPrefab.GetComponent<Item>() != null &&
@@ -23,6 +46,8 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
     private readonly NetworkVariable<FixedString128Bytes> ingredientName = new();
     private TextMeshPro label;
     private string displayedText;
+    private Renderer[] boxRenderers;
+    private Collider[] boxColliders;
     public int Remaining => remaining.Value;
     public bool IsPurchased => purchased.Value;
 
@@ -46,7 +71,8 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
         }
         var display = new GameObject("Box label");
         // Keep label meshes out of Item placement bounds and holograms.
-        display.transform.position = transform.position + Vector3.up * 0.32f;
+        boxRenderers = GetComponentsInChildren<Renderer>();
+        boxColliders = GetComponentsInChildren<Collider>();
         label = display.AddComponent<TextMeshPro>();
         label.fontSize = 1.1f;
         label.alignment = TextAlignmentOptions.Center;
@@ -54,6 +80,7 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
         label.color = Color.white;
         purchased.OnValueChanged += OnPurchasedChanged;
         RefreshPurchasePhysics();
+        UpdateLabelPose();
     }
 
     private void OnPurchasedChanged(bool previous, bool current) => RefreshPurchasePhysics();
@@ -65,13 +92,40 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
     private void LateUpdate()
     {
         if (!IsSpawned || label == null) return;
-        label.transform.position = transform.position + Vector3.up * 0.32f;
         string text = !purchased.Value
             ? $"{ingredientName.Value}\n[F] Buy {capacity.Value} for ${price.Value}"
             : $"{ingredientName.Value} {remaining.Value}/{capacity.Value}\n{(remaining.Value > 0 ? "[F] Take | " : "Empty | ")}[Shift+F] Carry";
         if (text != displayedText) { label.text = text; displayedText = text; }
+        UpdateLabelPose();
+    }
+
+    private void UpdateLabelPose()
+    {
         Camera camera = Camera.main;
         if (camera != null) label.transform.rotation = camera.transform.rotation;
+
+        Bounds bounds = new Bounds(transform.position, Vector3.zero);
+        bool hasBounds = false;
+        foreach (Renderer renderer in boxRenderers)
+        {
+            if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy) continue;
+            if (!hasBounds) { bounds = renderer.bounds; hasBounds = true; }
+            else bounds.Encapsulate(renderer.bounds);
+        }
+        foreach (Collider collider in boxColliders)
+        {
+            if (collider == null || !collider.enabled || collider.isTrigger || !collider.gameObject.activeInHierarchy) continue;
+            if (!hasBounds) { bounds = collider.bounds; hasBounds = true; }
+            else bounds.Encapsulate(collider.bounds);
+        }
+
+        // Include the label's vertical extent after billboarding, so its lower
+        // edge stays clear even when the camera pitches or the box rotates.
+        Vector2 size = label.rectTransform.rect.size;
+        float halfHeight = (Mathf.Abs(label.transform.right.y) * size.x +
+                            Mathf.Abs(label.transform.up.y) * size.y) * 0.5f;
+        label.transform.position = new Vector3(bounds.center.x,
+            bounds.max.y + Mathf.Max(0f, labelClearance) + halfHeight, bounds.center.z);
     }
 
     public override void OnNetworkDespawn()

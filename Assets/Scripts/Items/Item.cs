@@ -97,6 +97,11 @@ public class Item : NetworkBehaviour, IInteractable
 
         if (localParentLocked) return;
         if (!IsHeld) return;
+        if (TryGetComponent(out IngredientBox box) && TryGetHolder(out PlayerPickup holder) &&
+            holder.holdPoint != null && transform.parent == holder.holdPoint)
+        {
+            transform.localPosition = box.GetCarryOffset(holder);
+        }
         if (transform.parent != null) return;
 
         TryAttachToHolder();
@@ -387,7 +392,7 @@ public class Item : NetworkBehaviour, IInteractable
         }
 
         transform.SetParent(holder.holdPoint, worldPositionStays: false);
-        transform.localPosition = Vector3.zero;
+        transform.localPosition = TryGetComponent(out IngredientBox box) ? box.GetCarryOffset(holder) : Vector3.zero;
         transform.localRotation = Quaternion.identity;
         SetLocalScaleForWorldScale(worldScale, holder.holdPoint);
     }

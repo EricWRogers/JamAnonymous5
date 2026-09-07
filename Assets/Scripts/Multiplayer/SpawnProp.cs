@@ -11,7 +11,7 @@ public class SpawnProp : MonoBehaviour
     [SerializeField] private float restockDelay = 0.25f;
     [SerializeField] private bool logDebugMessages = true;
     [Header("Ingredient Boxes")]
-    [SerializeField, Min(1)] private int ingredientsPerBox = 20;
+
     private IngredientBox ingredientBox;
     private bool UsesIngredientBox => itemPrefab != null &&
         (itemPrefab.GetComponent<FoodIngredient>() != null || itemPrefab.GetComponent<IngredientBox>() != null);
@@ -114,20 +114,11 @@ public class SpawnProp : MonoBehaviour
                 ingredientBox.NetworkObject.Spawn(destroyWithScene: true);
                 return true;
             }
-            if (itemPrefab.GetComponent<Item>() == null || itemPrefab.GetComponent<NetworkObject>() == null)
-            {
-                Debug.LogError("Ingredient stock requires an Item and NetworkObject on the ingredient prefab root.", this);
-                return false;
-            }
-            GameObject boxPrefab = Resources.Load<GameObject>("IngredientBox");
-            if (boxPrefab == null) { Debug.LogError("Missing Resources/IngredientBox prefab.", this); return false; }
-            GameObject box = Instantiate(boxPrefab, itemSpawnPoint.position, itemSpawnPoint.rotation);
-            ingredientBox = box.GetComponent<IngredientBox>();
-            int count = Mathf.Clamp(ingredientsPerBox, 1, 999);
-            int cost = (int)System.Math.Min(int.MaxValue, (long)Mathf.Max(0, itemCost) * count);
-            ingredientBox.Configure(itemPrefab, count, cost);
-            box.GetComponent<NetworkObject>().Spawn(destroyWithScene: true);
-            return true;
+            // Legacy shelves must explicitly choose their ingredient-specific box.
+            // Stop retrying this invalid setup instead of logging every second.
+            Debug.LogWarning($"[SpawnProp] {name} still references a loose ingredient. Assign its configured box prefab or replace this component with IngredientBoxSpawner.", this);
+            enabled = false;
+            return false;
         }
 
         if (isRestockingBlocked)
