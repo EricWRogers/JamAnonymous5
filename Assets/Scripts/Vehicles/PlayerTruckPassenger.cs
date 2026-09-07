@@ -22,6 +22,9 @@ public sealed class PlayerTruckPassenger : NetworkBehaviour
     private Vector3 localPosition, relativeVelocity;
     private float previousYaw, sendAt, jumpGrace, collisionRestoreAt;
     private bool wasKinematic;
+    private double simulationTime;
+    private bool jumpQueued;
+    private Collider[] overlapBuffer = new Collider[16];
     private InputSystem_Actions input;
     public bool IsAboard => sync.Count > 0;
     public bool Grounded { get; private set; }
@@ -73,27 +76,23 @@ public sealed class PlayerTruckPassenger : NetworkBehaviour
         IgnoreTruckCollisions();
         Physics.SyncTransforms();
 
-        float dt = Mathf.Min(Time.deltaTime, 0.05f);
-        Grounded = relativeVelocity.y <= 0f && Cast(Vector3.down, 0.08f, out RaycastHit ground) && ground.normal.y > 0.55f;
-        jumpGrace = Grounded ? movement.coyoteTime : Mathf.Max(0f, jumpGrace - dt);
+        RecoverOverlaps();
         bool blocked = NetworkSessionMenu.IsGameMenuOpen || !Application.isFocused;
         Vector2 command = blocked ? Vector2.zero : input.Player.Move.ReadValue<Vector2>();
-        Vector3 wish = Vector3.ClampMagnitude(transform.forward * command.y + transform.right * command.x, 1f);
-        float speed = input.Player.Sprint.IsPressed() ? movement.sprintSpeed : movement.walkSpeed;
-        Vector3 horizontal = Vector3.ProjectOnPlane(relativeVelocity, Vector3.up);
-        float acceleration = Grounded ? (wish.sqrMagnitude > 0f ? movement.acceleration : movement.deceleration) : movement.airAcceleration;
-        horizontal = blocked ? Vector3.zero : Vector3.MoveTowards(horizontal, wish * speed, acceleration * dt);
-        relativeVelocity = new Vector3(horizontal.x, relativeVelocity.y, horizontal.z);
-        if (Grounded && relativeVelocity.y < 0f) relativeVelocity.y = 0f;
-        if (!blocked && input.Player.Jump.WasPressedThisFrame() && jumpGrace > 0f)
+        bool sprinting = input.Player.Sprint.IsPressed();
+        if (blocked) jumpQueued = false;
+        else jumpQueued |= input.Player.Jump.WasPressedThisFrame();
+
+        simulationTime += Time.deltaTime;
+        float step = Time.fixedDeltaTime;
+        // Bound catch-up work, but retain any unprocessed time for the next frame.
+        for (int i = 0; i < 16 && simulationTime >= step; i++)
         {
-            relativeVelocity.y = movement.jumpForce;
-            Grounded = false;
-            jumpGrace = 0f;
+            simulationTime -= step;
+            SimulateStep(step, command, sprinting, blocked);
+            RecoverOverlaps();
+            if (!kitchen.Contains(transform.position, 0.2f)) break;
         }
-        if (!Grounded)
-            relativeVelocity.y += Physics.gravity.y * (relativeVelocity.y < 0f ? movement.fallGravityMultiplier : movement.riseGravityMultiplier) * dt;
-        Move(relativeVelocity * dt);
         body.position = transform.position;
         body.rotation = transform.rotation;
         localPosition = kitchen.transform.InverseTransformPoint(transform.position);
@@ -106,6 +105,31 @@ public sealed class PlayerTruckPassenger : NetworkBehaviour
             sendAt = Time.unscaledTime + 1f / Mathf.Max(1f, NetworkManager.NetworkConfig.TickRate);
         }
     }
+    private void SimulateStep(float dt, Vector2 command, bool sprinting, bool blocked)
+    {
+        Grounded = relativeVelocity.y <= 0f && Cast(Vector3.down, 0.08f, out RaycastHit ground) && ground.normal.y > 0.55f;
+        jumpGrace = Grounded ? movement.coyoteTime : Mathf.Max(0f, jumpGrace - dt);
+
+
+        Vector3 wish = Vector3.ClampMagnitude(transform.forward * command.y + transform.right * command.x, 1f);
+        float speed = sprinting ? movement.sprintSpeed : movement.walkSpeed;
+        Vector3 horizontal = Vector3.ProjectOnPlane(relativeVelocity, Vector3.up);
+        float acceleration = Grounded ? (wish.sqrMagnitude > 0f ? movement.acceleration : movement.deceleration) : movement.airAcceleration;
+        horizontal = blocked ? Vector3.zero : Vector3.MoveTowards(horizontal, wish * speed, acceleration * dt);
+        relativeVelocity = new Vector3(horizontal.x, relativeVelocity.y, horizontal.z);
+        if (Grounded && relativeVelocity.y < 0f) relativeVelocity.y = 0f;
+        if (!blocked && jumpQueued && jumpGrace > 0f)
+        {
+            relativeVelocity.y = movement.jumpForce;
+            Grounded = false;
+            jumpGrace = 0f;
+        }
+        jumpQueued = false;
+        if (!Grounded)
+            relativeVelocity.y += Physics.gravity.y * (relativeVelocity.y < 0f ? movement.fallGravityMultiplier : movement.riseGravityMultiplier) * dt;
+        Move(relativeVelocity * dt);
+    }
+
     private void PublishPose(TruckRelativePose state)
     {
         if (IsServer) AcceptPose(state);
@@ -144,6 +168,8 @@ public sealed class PlayerTruckPassenger : NetworkBehaviour
     }
     private void Enter(VehicleKitchen target)
     {
+        simulationTime = 0;
+        jumpQueued = false;
         RestoreCollisions();
         kitchen = target;
         localPosition = target.transform.InverseTransformPoint(transform.position);
@@ -163,6 +189,8 @@ public sealed class PlayerTruckPassenger : NetworkBehaviour
     }
     private void Leave(bool inheritVelocity)
     {
+        simulationTime = 0;
+        jumpQueued = false;
         Vector3 velocity = relativeVelocity + (inheritVelocity ? DepartureVelocity : Vector3.zero);
         kitchen = null;
         if (IsOwner && IsSpawned)
@@ -213,19 +241,61 @@ public sealed class PlayerTruckPassenger : NetworkBehaviour
         IgnoreTruckCollisions();
         foreach (TruckTransformSuspension suspension in sync) suspension.Suspend();
     }
-    private bool Cast(Vector3 direction, float distance, out RaycastHit nearest)
+    private bool IsOwnOrPlayerCollider(Collider other) =>
+        other.transform.IsChildOf(NetworkObject.transform) || other.GetComponentInParent<PlayerPickup>() != null;
+
+    private void GetCapsuleGeometry(out Vector3 top, out Vector3 bottom, out float radius)
     {
         Vector3 scale = transform.lossyScale;
-        float radius = capsule.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+        radius = capsule.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
         float halfSegment = Mathf.Max(0f, capsule.height * Mathf.Abs(scale.y) * 0.5f - radius);
         Vector3 center = transform.TransformPoint(capsule.center);
+        top = center + transform.up * halfSegment;
+        bottom = center - transform.up * halfSegment;
+    }
+
+    private void RecoverOverlaps()
+    {
+        // Carrying the upright capsule through a tilted frame can put it inside
+        // the floor or furniture. Casts alone cannot resolve that initial overlap.
+        for (int iteration = 0; iteration < 8; iteration++)
+        {
+            GetCapsuleGeometry(out Vector3 top, out Vector3 bottom, out float radius);
+            int count;
+            while (true)
+            {
+                count = Physics.OverlapCapsuleNonAlloc(top, bottom, radius, overlapBuffer,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                if (count < overlapBuffer.Length) break;
+                System.Array.Resize(ref overlapBuffer, overlapBuffer.Length * 2);
+            }
+            bool moved = false;
+            for (int i = 0; i < count; i++)
+            {
+                Collider other = overlapBuffer[i];
+                if (other == null || IsOwnOrPlayerCollider(other)) continue;
+                if (!Physics.ComputePenetration(capsule, transform.position, transform.rotation,
+                    other, other.transform.position, other.transform.rotation,
+                    out Vector3 direction, out float depth) || depth <= 0f) continue;
+                transform.position += direction * (depth + 0.002f);
+                float inwardSpeed = Vector3.Dot(relativeVelocity, direction);
+                if (inwardSpeed < 0f) relativeVelocity -= direction * inwardSpeed;
+                moved = true;
+            }
+            if (!moved) break;
+        }
+    }
+
+    private bool Cast(Vector3 direction, float distance, out RaycastHit nearest)
+    {
+        GetCapsuleGeometry(out Vector3 top, out Vector3 bottom, out float radius);
         nearest = default;
         float closest = float.PositiveInfinity;
-        foreach (RaycastHit hit in Physics.CapsuleCastAll(center + Vector3.up * halfSegment,
-            center - Vector3.up * halfSegment, Mathf.Max(0.01f, radius - 0.015f), direction,
+        foreach (RaycastHit hit in Physics.CapsuleCastAll(top,
+            bottom, Mathf.Max(0.01f, radius - 0.015f), direction,
             distance + 0.015f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
         {
-            if (hit.transform.IsChildOf(NetworkObject.transform) || hit.collider.GetComponentInParent<PlayerPickup>() != null) continue;
+            if (IsOwnOrPlayerCollider(hit.collider)) continue;
             if (hit.distance < closest) { closest = hit.distance; nearest = hit; }
         }
         return nearest.collider != null;

@@ -94,7 +94,7 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
         if (!IsSpawned || label == null) return;
         string text = !purchased.Value
             ? $"{ingredientName.Value}\n[F] Buy {capacity.Value} for ${price.Value}"
-            : $"{ingredientName.Value} {remaining.Value}/{capacity.Value}\n{(remaining.Value > 0 ? "[F] Take | " : "Empty | ")}[Shift+F] Carry";
+            : $"{ingredientName.Value} {remaining.Value}/{capacity.Value}\n[F] Take / Return | [Shift+F] Carry";
         if (text != displayedText) { label.text = text; displayedText = text; }
         UpdateLabelPose();
     }
@@ -149,7 +149,7 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
             !NetworkManager.ConnectedClients.TryGetValue(rpc.Receive.SenderClientId, out NetworkClient client) ||
             client.PlayerObject == null) return;
         PlayerPickup pickup = client.PlayerObject.GetComponentInChildren<PlayerPickup>();
-        if (pickup == null || !pickup.enabled || pickup.IsHoldingItem() ||
+        if (pickup == null || !pickup.enabled ||
             Vector3.Distance(pickup.transform.position, transform.position) > 3.5f) return;
         if (pickup.TryGetComponent(out PlayerVehicleDriver driver) && driver.IsSeated) return;
         Vector3 eye = pickup.playerCamera != null ? pickup.playerCamera.transform.position : pickup.transform.position + Vector3.up;
@@ -158,6 +158,11 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
             Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             if (!hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(pickup.transform)) return;
 
+        if (pickup.IsHoldingItem())
+        {
+            if (!carry) TryReturnIngredient(pickup);
+            return;
+        }
         if (carry)
         {
             if (purchased.Value) pickup.ServerTryPickUpItem(GetComponent<Item>());
@@ -179,5 +184,19 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
         obj.Spawn(destroyWithScene: true);
         if (!pickup.ServerTryPickUpItem(instance.GetComponent<Item>())) { obj.Despawn(true); return; }
         remaining.Value--;
+    }
+
+    private void TryReturnIngredient(PlayerPickup pickup)
+    {
+        if (!IsServer || !purchased.Value || remaining.Value >= capacity.Value ||
+            !pickup.ServerTryGetHeldItem(out Item item) || !item.IsSpawned || !item.IsHeld ||
+            !item.TryGetComponent(out FoodIngredient food) || food.IsInFoodAssembly || food.IsOnGrill ||
+            !food.MatchesBoxStock(ingredientPrefab.GetComponent<FoodIngredient>())) return;
+        if (item.TryGetComponent(out FoodAssemblyBase assembly) && assembly.SnappedIngredients.Count > 0) return;
+        // Never discard nested ingredients or other networked contents.
+        if (item.GetComponentsInChildren<NetworkObject>(true).Length != 1) return;
+        if (!pickup.ServerTryReleaseHeldItemPreserveWorldPose(item)) return;
+        item.NetworkObject.Despawn(true);
+        remaining.Value++;
     }
 }
