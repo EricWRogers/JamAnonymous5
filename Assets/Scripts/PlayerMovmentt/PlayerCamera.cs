@@ -50,6 +50,7 @@ public class PlayerCamera : NetworkBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         ResetLookToCurrentPose();
+        OptionsMenu.ApplySavedSettingsToCamera(GetComponent<Camera>(), this);
     }
 
 
