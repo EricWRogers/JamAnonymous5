@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 
 public class MainMenu : MonoBehaviour
 {
@@ -6,16 +7,33 @@ public class MainMenu : MonoBehaviour
     public GameObject optionsMenu;
 
     public GameObject creditsMenu;
+    public TMP_InputField playerNameInput;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        if (playerNameInput == null) return;
+        playerNameInput.characterLimit = PlayerIdentity.MaxNameLength;
+        playerNameInput.SetTextWithoutNotify(PlayerIdentity.SavedName);
+        playerNameInput.onValueChanged.AddListener(SavePlayerName);
+        playerNameInput.onEndEdit.AddListener(FinishPlayerName);
     }
 
-    // Update is called once per frame
-    void Update()
+    private void SavePlayerName(string value)
     {
-        
+        PlayerIdentity.SaveName(value);
+    }
+
+    private void FinishPlayerName(string value)
+    {
+        SavePlayerName(value);
+        playerNameInput.SetTextWithoutNotify(PlayerIdentity.SavedName);
+    }
+
+    private void OnDestroy()
+    {
+        if (playerNameInput == null) return;
+        playerNameInput.onValueChanged.RemoveListener(SavePlayerName);
+        playerNameInput.onEndEdit.RemoveListener(FinishPlayerName);
     }
 
     public void OptionsMenuToggle()

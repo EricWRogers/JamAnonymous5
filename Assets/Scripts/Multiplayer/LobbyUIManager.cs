@@ -15,6 +15,7 @@ public class LobbyUIManager : NetworkBehaviour
     public TMP_Text joinCodeText;
 
     private bool isJoinCodeVisible;
+    private GameManager nameSource;
 
     void Awake()
     {
@@ -26,6 +27,8 @@ public class LobbyUIManager : NetworkBehaviour
         SetJoinCodeVisibility(false);
         //We will be watching this on all clients so we know to update.
         clientIds.OnListChanged += OnListChanged;
+        nameSource = GameManager.Instance;
+        if (nameSource != null) nameSource.PlayerNamesChanged += Rebuild;
 
         if (IsServer)
         {
@@ -75,6 +78,7 @@ public class LobbyUIManager : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         clientIds.OnListChanged -= OnListChanged;
+        if (nameSource != null) nameSource.PlayerNamesChanged -= Rebuild;
 
         if (IsServer)
         {
@@ -100,7 +104,7 @@ public class LobbyUIManager : NetworkBehaviour
 {
         var obj = Instantiate(entryPrefab, container);
         var color = GameManager.Instance.GetColor(clientId);
-        obj.GetComponent<PlayerLobbyUI>().SetName($"Player {clientId}", color);
+        obj.GetComponent<PlayerLobbyUI>().SetName(GameManager.Instance.GetPlayerName(clientId), color);
         players.Add(obj);
 }
     }

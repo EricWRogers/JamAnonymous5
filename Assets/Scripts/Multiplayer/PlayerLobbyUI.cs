@@ -8,6 +8,7 @@ public class PlayerLobbyUI : MonoBehaviour
 
     public void SetName(string name, Color32 color)
     {
+        label.richText = false;
         label.text = name;
         label.color = color;
     }
