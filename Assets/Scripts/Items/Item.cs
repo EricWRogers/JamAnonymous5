@@ -12,6 +12,7 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkObject))]
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(Collider))]
+[DefaultExecutionOrder(-120)]
 public class Item : NetworkBehaviour, IInteractable
 {
     public void Interact(PlayerInteraction interactor)
@@ -38,6 +39,122 @@ public class Item : NetworkBehaviour, IInteractable
     private readonly Dictionary<Collider, bool> colliderStatesBeforeHold = new();
 
     private const ulong NoHolder = ulong.MaxValue;
+    private readonly NetworkVariable<TruckRelativePose> surfacePose = new(TruckRelativePose.Detached);
+    private TruckTransformSuspension surfaceSync;
+    private bool resolvedSurface;
+    private readonly List<(Collider item, Collider truck)> surfaceCollisionPairs = new();
+    public bool IsSurfaceAttached => surfacePose.Value.Support != TruckRelativePose.None;
+    public VehicleKitchen AttachedKitchen
+    {
+        get
+        {
+            Item current = this;
+            for (int i = 0; i < 16; i++)
+            {
+                if (!current.TryGetSurface(out NetworkObject support))
+                {
+                    current = current.transform.parent != null ? current.transform.parent.GetComponentInParent<Item>() : null;
+                    if (current == null || current == this) return null;
+                    continue;
+                }
+                VehicleKitchen kitchen = support.GetComponentInParent<VehicleKitchen>();
+                if (kitchen != null) return kitchen;
+                current = support.GetComponent<Item>();
+                if (current == null || current == this) return null;
+            }
+            return null;
+        }
+    }
+    private bool TryGetSurface(out NetworkObject support)
+    {
+        support = null;
+        return IsSurfaceAttached && NetworkManager != null &&
+            NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(surfacePose.Value.Support, out support);
+    }
+    public bool ServerAttachToSurface(NetworkObject support, Vector3 position, Quaternion rotation)
+    {
+        if (!IsServer || IsHeld || support == null || !support.IsSpawned || support == NetworkObject) return false;
+        surfacePose.Value = new TruckRelativePose { Support = support.NetworkObjectId,
+            Position = support.transform.InverseTransformPoint(position),
+            Rotation = Quaternion.Inverse(support.transform.rotation) * rotation };
+        FollowSurface();
+        return true;
+    }
+    private void OnSurfaceChanged(TruckRelativePose previous, TruckRelativePose current)
+    {
+        if (current.Support == TruckRelativePose.None)
+        {
+            resolvedSurface = false;
+            surfaceSync?.Restore();
+            surfaceSync = null;
+            ApplyHeldState(IsHeld || localParentLocked);
+        }
+        else FollowSurface();
+    }
+    private void FollowSurface(int depth = 0)
+    {
+        if (IsHeld || localParentLocked || depth >= 16) return;
+        // Keep pending late-join attachments stationary until their support arrives.
+        if (networkTransform != null && surfaceSync == null) surfaceSync = new TruckTransformSuspension(networkTransform);
+        surfaceSync?.Suspend();
+        if (rb != null) rb.isKinematic = true;
+        RestoreSuppressedColliders();
+        if (!TryGetSurface(out NetworkObject support))
+        {
+            if (IsServer && resolvedSurface) surfacePose.Value = TruckRelativePose.Detached;
+            return;
+        }
+        resolvedSurface = true;
+        if (support.TryGetComponent(out Item supportingItem) && supportingItem.IsSurfaceAttached)
+            supportingItem.FollowSurface(depth + 1);
+        TruckRelativePose pose = surfacePose.Value;
+        SetWorldPose(support.transform.TransformPoint(pose.Position), support.transform.rotation * pose.Rotation);
+        SuppressSurfaceCollisions();
+    }
+
+    private void SuppressSurfaceCollisions()
+    {
+        VehicleKitchen kitchen = AttachedKitchen;
+        if (kitchen == null) return;
+        Rigidbody truckBody = kitchen.GetComponent<Rigidbody>();
+        foreach (Collider own in GetComponentsInChildren<Collider>(true))
+        foreach (Collider other in kitchen.GetComponentsInChildren<Collider>(true))
+        {
+            if (own == other || own.isTrigger || other.isTrigger || other.attachedRigidbody != truckBody) continue;
+            var pair = (own, other);
+            if (!surfaceCollisionPairs.Contains(pair) && !Physics.GetIgnoreCollision(own, other))
+                surfaceCollisionPairs.Add(pair);
+        }
+        UpdateSurfaceCollisions(false);
+    }
+
+    private void UpdateSurfaceCollisions(bool release)
+    {
+        for (int i = surfaceCollisionPairs.Count - 1; i >= 0; i--)
+        {
+            var pair = surfaceCollisionPairs[i];
+            if (pair.item == null || pair.truck == null) { surfaceCollisionPairs.RemoveAt(i); continue; }
+            // Disabling held colliders can reset IgnoreCollision. Reapply until
+            // release has actually cleared the truck, preventing a separation kick.
+            bool separated = pair.item.enabled && pair.truck.enabled &&
+                !pair.item.bounds.Intersects(pair.truck.bounds);
+            if (release && separated)
+            {
+                Physics.IgnoreCollision(pair.item, pair.truck, false);
+                surfaceCollisionPairs.RemoveAt(i);
+            }
+            else Physics.IgnoreCollision(pair.item, pair.truck, true);
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        if (!IsSpawned) return;
+        if (IsSurfaceAttached && !IsHeld && !localParentLocked) FollowSurface();
+        // Assembly children may have a local parent instead of their own surface state.
+        else if (AttachedKitchen != null) SuppressSurfaceCollisions();
+        else UpdateSurfaceCollisions(!IsHeld);
+    }
 
     private NetworkVariable<ulong> holderClientId = new NetworkVariable<ulong>(
         NoHolder,
@@ -73,6 +190,7 @@ public class Item : NetworkBehaviour, IInteractable
     public override void OnNetworkSpawn()
     {
         holderClientId.OnValueChanged += OnHolderChanged;
+        surfacePose.OnValueChanged += OnSurfaceChanged;
         ApplyHeldState(IsHeld);
 
         if (IsHeld)
@@ -83,13 +201,20 @@ public class Item : NetworkBehaviour, IInteractable
 
     public override void OnNetworkDespawn()
     {
+        foreach (var pair in surfaceCollisionPairs)
+            if (pair.item != null && pair.truck != null) Physics.IgnoreCollision(pair.item, pair.truck, false);
+        surfaceCollisionPairs.Clear();
         holderClientId.OnValueChanged -= OnHolderChanged;
+        surfacePose.OnValueChanged -= OnSurfaceChanged;
+        surfaceSync?.Restore();
+        surfaceSync = null;
         localParentLocked = false;
         DetachFromHolder(worldPositionStays: true);
     }
 
     private void LateUpdate()
     {
+        if (IsSurfaceAttached && !IsHeld && !localParentLocked) { FollowSurface(); return; }
         if (IsHeld)
         {
             SuppressCollidersWhileHeld();
@@ -105,6 +230,11 @@ public class Item : NetworkBehaviour, IInteractable
         if (transform.parent != null) return;
 
         TryAttachToHolder();
+    }
+
+    private void Update()
+    {
+        if (IsSpawned && IsSurfaceAttached && !IsHeld && !localParentLocked) FollowSurface();
     }
 
     private void OnHolderChanged(ulong oldValue, ulong newValue)
@@ -138,6 +268,7 @@ public class Item : NetworkBehaviour, IInteractable
         if (!holder.NetworkObject.IsSpawned) return false;
         if (IsHeld) return false;
 
+        surfacePose.Value = TruckRelativePose.Detached;
         UnlockLocalParent();
         cachedHolder = holder;
         holderClientId.Value = holder.OwnerClientId;
@@ -312,8 +443,8 @@ public class Item : NetworkBehaviour, IInteractable
             }
             else
             {
-                rb.isKinematic = IsSpawned && networkTransform != null &&
-                    (networkTransform.IsServerAuthoritative() ? !IsServer : !IsOwner);
+                rb.isKinematic = IsSurfaceAttached || (IsSpawned && networkTransform != null &&
+                    (networkTransform.IsServerAuthoritative() ? !IsServer : !IsOwner));
                 rb.interpolation = defaultInterpolation;
             }
         }

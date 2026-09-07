@@ -89,14 +89,19 @@ public class PlayerPickup : NetworkBehaviour
         }
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
         bool hasPose = ItemPlacement.TryFindPose(heldItem, transform, ray, pickupRange,
-            out Vector3 position, out Quaternion rotation, out bool valid);
+            out Vector3 position, out Quaternion rotation, out bool valid, out NetworkObject surface);
         if (hasPose) placementPreview.Show(heldItem, position, rotation, valid);
         else placementPreview.Hide();
         if (releasePlacement)
         {
             isAimingPlacement = false;
             placementPreview.Hide();
-            if (hasPose && valid) RequestPlaceServerRpc(heldItemNetId.Value, ray.origin, ray.direction);
+            if (hasPose && valid)
+                RequestPlaceServerRpc(heldItemNetId.Value,
+                    surface != null ? surface.NetworkObjectId : TruckRelativePose.None,
+                    surface != null ? surface.transform.InverseTransformPoint(ray.origin) : ray.origin,
+                    surface != null ? surface.transform.InverseTransformDirection(ray.direction) : ray.direction,
+                    surface != null ? surface.transform.InverseTransformPoint(position) : position);
         }
     }
 
@@ -116,11 +121,23 @@ public class PlayerPickup : NetworkBehaviour
     }
 
     [ServerRpc]
-    private void RequestPlaceServerRpc(ulong expectedItem, Vector3 origin, Vector3 direction)
+    private void RequestPlaceServerRpc(ulong expectedItem, ulong supportId, Vector3 origin, Vector3 direction, Vector3 requestedPosition)
     {
         if (!enabled || expectedItem != heldItemNetId.Value || !TryResolveHeldItem()) return;
         if (TryGetComponent(out PlayerVehicleDriver driver) && driver.IsSeated) return;
-        if (!ItemPlacement.IsFinite(origin) || !ItemPlacement.IsFinite(direction)) return;
+        if (!ItemPlacement.IsFinite(origin) || !ItemPlacement.IsFinite(direction) || !ItemPlacement.IsFinite(requestedPosition)) return;
+        NetworkObject requestedSurface = null;
+        if (supportId != TruckRelativePose.None)
+        {
+            if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(supportId, out requestedSurface)) return;
+            VehicleKitchen kitchen = requestedSurface.GetComponentInParent<VehicleKitchen>();
+            if (kitchen == null && requestedSurface.TryGetComponent(out Item supportItem)) kitchen = supportItem.AttachedKitchen;
+            if (kitchen == null) return;
+            origin = requestedSurface.transform.TransformPoint(origin);
+            direction = requestedSurface.transform.TransformDirection(direction);
+            requestedPosition = requestedSurface.transform.TransformPoint(requestedPosition);
+        }
+        Physics.SyncTransforms();
         Vector3 eye = playerCamera != null ? playerCamera.transform.position : transform.position + Vector3.up;
         if (Vector3.Distance(eye, origin) > 1f || direction.sqrMagnitude < 0.5f || direction.sqrMagnitude > 1.5f) return;
         // Reject displaced ray origins that cross a wall between the host's eye and the client's eye.
@@ -128,8 +145,11 @@ public class PlayerPickup : NetworkBehaviour
             Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             if (!hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(heldItem.transform)) return;
         if (!ItemPlacement.TryFindPose(heldItem, transform, new Ray(origin, direction.normalized), pickupRange,
-            out Vector3 position, out Quaternion rotation, out bool valid) || !valid) return;
-        ServerTryReleaseHeldItem(heldItem, position, rotation);
+            out Vector3 position, out Quaternion rotation, out bool valid, out NetworkObject surface) || !valid) return;
+        if (surface != requestedSurface || Vector3.Distance(position, requestedPosition) > 0.15f) return;
+        Item placed = heldItem;
+        if (ServerTryReleaseHeldItem(placed, position, rotation) && surface != null)
+            placed.ServerAttachToSurface(surface, position, rotation);
     }
     [ServerRpc]
     private void RequestThrowServerRpc(ulong expectedItem, Vector3 direction)
@@ -154,7 +174,10 @@ public class PlayerPickup : NetworkBehaviour
             Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             if (!hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(item.transform)) return;
         if (ServerTryReleaseHeldItem(item, position, rotation))
-            item.ServerApplyThrow(direction.normalized * Mathf.Max(0f, throwSpeed), transform);
+        {
+            Vector3 inherited = TryGetComponent(out PlayerTruckPassenger passenger) ? passenger.DepartureVelocity : Vector3.zero;
+            item.ServerApplyThrow(direction.normalized * Mathf.Max(0f, throwSpeed) + inherited, transform);
+        }
     }
 
     [ServerRpc]

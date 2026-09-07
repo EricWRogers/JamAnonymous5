@@ -570,6 +570,7 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
+  - component: {fileID: 910000001}
   - component: {fileID: 3295485989464305769}
   - component: {fileID: 6225081333855752583}
   - component: {fileID: 3614154740119494269}
@@ -2917,3 +2918,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5816486396722604975, guid: 8415a2d930dc99c46a5203c4404030d0, type: 3}
   m_PrefabInstance: {fileID: 4034195756772390973}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &910000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_GameObject: {fileID: 1124121359851112903}
+  m_Enabled: 1
+  m_Script: {fileID: 11500000, guid: 13fca276c86c40a894b68d495eee558f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerTruckPassenger

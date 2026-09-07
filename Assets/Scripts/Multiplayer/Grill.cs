@@ -13,6 +13,8 @@ public class Grill : NetworkBehaviour
     [Tooltip("Trigger above the cooking surface. Ingredients must also rest directly on a solid grill collider.")]
     [SerializeField] private BoxCollider cookingArea;
     [SerializeField, Min(0.005f)] private float surfaceTolerance = 0.05f;
+    [Tooltip("Optional authored surface frame. Mounted grills otherwise use truck up; outdoor grills retain world up.")]
+    [SerializeField] private Transform cookingSurfaceFrame;
 
     private readonly NetworkList<ulong> cookingItemIds = new(null,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -76,6 +78,7 @@ public class Grill : NetworkBehaviour
     private void DetectIngredients()
     {
         detected.Clear();
+        if (GetComponentInParent<VehicleKitchen>() != null) Physics.SyncTransforms();
         if (cookingArea == null || !cookingArea.enabled || !cookingArea.gameObject.activeInHierarchy) return;
         Vector3 scale = cookingArea.transform.lossyScale;
         Vector3 half = Vector3.Scale(cookingArea.size * 0.5f,
@@ -106,14 +109,16 @@ public class Grill : NetworkBehaviour
         Bounds bounds = collider.bounds;
         RaycastHit nearest = default;
         float distance = float.PositiveInfinity;
-        // Use world up: imported grill meshes can have a rotated local coordinate system.
-        foreach (RaycastHit hit in Physics.RaycastAll(bounds.center, Vector3.down,
-            bounds.extents.y + surfaceTolerance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        VehicleKitchen kitchen = GetComponentInParent<VehicleKitchen>();
+        Vector3 up = cookingSurfaceFrame != null ? cookingSurfaceFrame.up : kitchen != null ? kitchen.transform.up : Vector3.up;
+        float extent = Vector3.Dot(bounds.extents, new Vector3(Mathf.Abs(up.x), Mathf.Abs(up.y), Mathf.Abs(up.z)));
+        foreach (RaycastHit hit in Physics.RaycastAll(bounds.center, -up,
+            extent + surfaceTolerance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
         {
             if (hit.transform.IsChildOf(ingredient.transform)) continue;
             if (hit.distance < distance) { nearest = hit; distance = hit.distance; }
         }
-        return nearest.collider != null && nearest.normal.y >= 0.8f &&
+        return nearest.collider != null && Vector3.Dot(nearest.normal, up) >= 0.8f &&
             nearest.collider.GetComponentInParent<Grill>() == this;
     }
 

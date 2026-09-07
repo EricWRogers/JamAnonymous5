@@ -132,7 +132,12 @@ public static class ItemPlacement
 
     public static bool TryFindPose(Item item, Transform player, Ray ray, float range,
         out Vector3 position, out Quaternion rotation, out bool valid)
+        => TryFindPose(item, player, ray, range, out position, out rotation, out valid, out _);
+
+    public static bool TryFindPose(Item item, Transform player, Ray ray, float range,
+        out Vector3 position, out Quaternion rotation, out bool valid, out Unity.Netcode.NetworkObject surface)
     {
+        surface = null;
         position = default; rotation = Quaternion.identity; valid = false;
         if (!IsFinite(ray.origin) || !IsFinite(ray.direction) || ray.direction.sqrMagnitude < 0.5f) return false;
         RaycastHit nearest = default;
@@ -143,8 +148,14 @@ public static class ItemPlacement
             if (hit.distance < distance) { nearest = hit; distance = hit.distance; }
         }
         if (nearest.collider == null || !TryGetBounds(item, out Bounds bounds)) return false;
-        Vector3 forward = Vector3.ProjectOnPlane(ray.direction, Vector3.up);
-        rotation = forward.sqrMagnitude > 0.001f ? Quaternion.LookRotation(forward) : Quaternion.Euler(0, player.eulerAngles.y, 0);
+        VehicleKitchen kitchen = nearest.collider.GetComponentInParent<VehicleKitchen>();
+        Item supportedItem = nearest.collider.GetComponentInParent<Item>();
+        if (kitchen == null && supportedItem != null) kitchen = supportedItem.AttachedKitchen;
+        if (kitchen != null) surface = nearest.collider.GetComponentInParent<Unity.Netcode.NetworkObject>();
+        Vector3 up = kitchen != null ? kitchen.transform.up : Vector3.up;
+        Vector3 forward = Vector3.ProjectOnPlane(ray.direction, up);
+        if (forward.sqrMagnitude < 0.001f) forward = Vector3.ProjectOnPlane(player.forward, up);
+        rotation = Quaternion.LookRotation(forward.normalized, up);
         Vector3 scale = item.transform.lossyScale;
         Vector3 center = Vector3.Scale(bounds.center, scale);
         Vector3 extents = Vector3.Scale(bounds.extents, new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
@@ -156,9 +167,8 @@ public static class ItemPlacement
             new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
         float supportBottom = support.center.y * scale.y - support.extents.y * Mathf.Abs(scale.y);
         position = nearest.point - rotation * new Vector3(supportCenter.x, 0f, supportCenter.z);
-        position.y -= supportBottom;
-        position.y += 0.005f;
-        if (nearest.normal.y < 0.95f || nearest.collider.GetComponentInParent<PlayerPickup>() != null) return true;
+        position += up * (-supportBottom + 0.005f);
+        if (Vector3.Dot(nearest.normal, up) < 0.95f || nearest.collider.GetComponentInParent<PlayerPickup>() != null) return true;
         foreach (Collider overlap in Physics.OverlapBox(position + rotation * supportCenter, supportExtents, rotation,
             Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             if (!overlap.transform.IsChildOf(item.transform)) return true;
