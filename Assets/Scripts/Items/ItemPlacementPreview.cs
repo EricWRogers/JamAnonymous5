@@ -142,12 +142,24 @@ public static class ItemPlacement
         if (!IsFinite(ray.origin) || !IsFinite(ray.direction) || ray.direction.sqrMagnitude < 0.5f) return false;
         RaycastHit nearest = default;
         float distance = float.PositiveInfinity;
-        foreach (RaycastHit hit in Physics.RaycastAll(ray, range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        foreach (RaycastHit hit in Physics.RaycastAll(ray, range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
             if (hit.collider.transform.IsChildOf(player) || hit.collider.transform.IsChildOf(item.transform)) continue;
+            if (hit.collider.isTrigger)
+            {
+                BoxStorageShelf candidateShelf = hit.collider.GetComponentInParent<BoxStorageShelf>();
+                if (!item.TryGetComponent<IngredientBox>(out _) || candidateShelf == null ||
+                    !candidateShelf.IsCompartment(hit.collider)) continue;
+            }
             if (hit.distance < distance) { nearest = hit; distance = hit.distance; }
         }
         if (nearest.collider == null || !TryGetBounds(item, out Bounds bounds)) return false;
+        BoxStorageShelf shelf = nearest.collider.GetComponentInParent<BoxStorageShelf>();
+        if (shelf != null && shelf.IsCompartment(nearest.collider))
+        {
+            surface = shelf.NetworkObject;
+            return shelf.TryGetPlacement(item, nearest.collider, out position, out rotation, out valid);
+        }
         VehicleKitchen kitchen = nearest.collider.GetComponentInParent<VehicleKitchen>();
         Item supportedItem = nearest.collider.GetComponentInParent<Item>();
         if (kitchen == null && supportedItem != null) kitchen = supportedItem.AttachedKitchen;

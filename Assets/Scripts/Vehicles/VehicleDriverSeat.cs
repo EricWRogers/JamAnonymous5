@@ -49,6 +49,10 @@ public sealed class VehicleDriverSeat : NetworkBehaviour, IInteractable
     public Transform CameraMarker => cameraMarker;
     public VehicleController Vehicle => vehicle;
 
+    // Kitchen colliders share the truck hierarchy, but are not driving controls.
+    public bool IsEntryInteractionCollider(Collider candidate) => enabled && entryMarker != null &&
+        candidate != null && candidate.transform.IsChildOf(entryMarker);
+
     private void Awake() => vehicle = GetComponent<VehicleController>();
 
     public override void OnNetworkSpawn()

@@ -44,6 +44,9 @@ public class Item : NetworkBehaviour, IInteractable
     private bool resolvedSurface;
     private readonly List<(Collider item, Collider truck)> surfaceCollisionPairs = new();
     public bool IsSurfaceAttached => surfacePose.Value.Support != TruckRelativePose.None;
+    public bool IsAttachedTo(NetworkObject support) => support != null && IsSurfaceAttached && surfacePose.Value.Support == support.NetworkObjectId;
+    public Vector3 AttachmentWorldPosition => TryGetSurface(out NetworkObject support)
+        ? support.transform.TransformPoint(surfacePose.Value.Position) : transform.position;
     public VehicleKitchen AttachedKitchen
     {
         get

@@ -132,7 +132,7 @@ public class PlayerPickup : NetworkBehaviour
             if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(supportId, out requestedSurface)) return;
             VehicleKitchen kitchen = requestedSurface.GetComponentInParent<VehicleKitchen>();
             if (kitchen == null && requestedSurface.TryGetComponent(out Item supportItem)) kitchen = supportItem.AttachedKitchen;
-            if (kitchen == null) return;
+            if (kitchen == null && !requestedSurface.TryGetComponent<BoxStorageShelf>(out _)) return;
             origin = requestedSurface.transform.TransformPoint(origin);
             direction = requestedSurface.transform.TransformDirection(direction);
             requestedPosition = requestedSurface.transform.TransformPoint(requestedPosition);

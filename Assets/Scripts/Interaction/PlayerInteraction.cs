@@ -257,7 +257,8 @@ public class PlayerInteraction : NetworkBehaviour
             return item;
         InteractableTarget target = hit.collider.GetComponentInParent<InteractableTarget>();
 
-        if (target != null && target.TryGetInteractable(out IInteractable targetInteractable))
+        if (target != null && target.TryGetInteractable(out IInteractable targetInteractable) &&
+            CanTargetInteraction(targetInteractable, hit.collider))
         {
             return targetInteractable;
         }
@@ -266,13 +267,21 @@ public class PlayerInteraction : NetworkBehaviour
 
         for (int i = 0; i < behaviours.Length; i++)
         {
-            if (behaviours[i] is IInteractable interactable && behaviours[i] is not Item)
+            if (behaviours[i] is IInteractable interactable && behaviours[i] is not Item &&
+                CanTargetInteraction(interactable, hit.collider))
             {
                 return interactable;
             }
         }
 
         return hit.collider.GetComponentInParent<Item>();
+    }
+
+    private bool CanTargetInteraction(IInteractable interactable, Collider hitCollider)
+    {
+        if (interactable is not VehicleDriverSeat seat) return true;
+        if (!seat.IsEntryInteractionCollider(hitCollider)) return false;
+        return !TryGetComponent(out PlayerPickup pickup) || !pickup.IsHoldingItem();
     }
 
     private void LogHit(RaycastHit hit, string message)
