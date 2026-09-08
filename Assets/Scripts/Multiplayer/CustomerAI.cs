@@ -149,13 +149,10 @@ public class CustomerAI : NetworkBehaviour
         syncedIngredientNames = new List<string>(ingredientNames.Split(','));
     }
 
-    public void SetQueueDestination(Vector3 position, bool isAtCounter)
+    public void SetQueueDestination(Vector3 position)
     {
         if (agent == null) agent = GetComponent<NavMeshAgent>();
         agent.SetDestination(position);
-
-        if (isAtCounter && State == CustomerState.InQueue)
-            SetState(CustomerState.AtCounter);
     }
 
     [ClientRpc]

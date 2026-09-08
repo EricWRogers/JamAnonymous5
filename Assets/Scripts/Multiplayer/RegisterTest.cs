@@ -62,10 +62,10 @@ public class RegisterTest : NetworkBehaviour
     {
         for (int i = 0; i < queue.Count; i++)
         {
-            Vector3 pos = i == 0 
-                ? counterPoint.position 
+            Vector3 pos = i == 0
+                ? counterPoint.position
                 : queueStart.position - queueStart.forward * ((i - 1) * queueSpacing);
-            queue[i].SetQueueDestination(pos, i == 0);
+            queue[i].SetQueueDestination(pos);
         }
     }
 
@@ -77,7 +77,7 @@ public class RegisterTest : NetworkBehaviour
         for (int i = 0; i < waitingForFoodQueue.Count; i++)
         {
             Vector3 pos = start.position - start.forward * (i * waitingQueueSpacing);
-            waitingForFoodQueue[i].SetQueueDestination(pos, false);
+            waitingForFoodQueue[i].SetQueueDestination(pos);
         }
     }
 

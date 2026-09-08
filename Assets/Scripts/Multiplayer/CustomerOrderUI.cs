@@ -20,14 +20,14 @@ public class CustomerOrderUI : MonoBehaviour
     [SerializeField, Min(0f)] private float maximumBubbleWidth = 420f;
     [SerializeField, Min(0f)] private float maximumBubbleHeight;
 
-    void Start()
-    {
-        mainCam = Camera.main;
-    }
-
     void LateUpdate()
     {
-        if (billboardTarget == null || mainCam == null) return;
+        if (billboardTarget == null) return;
+
+        if (mainCam == null || !mainCam.isActiveAndEnabled)
+            mainCam = Camera.main;
+
+        if (mainCam == null) return;
         billboardTarget.LookAt(billboardTarget.position + mainCam.transform.forward);
     }
 
