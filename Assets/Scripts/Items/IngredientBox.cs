@@ -170,10 +170,19 @@ public sealed class IngredientBox : NetworkBehaviour, IInteractable
         }
         if (!purchased.Value)
         {
+            if (pickup.holdPoint == null) return;
             RestaurantMoney money = RestaurantMoney.Instance;
             if (price.Value > 0 && (money == null || !money.ServerTrySpend(price.Value))) return;
             remaining.Value = capacity.Value;
             purchased.Value = true;
+            // Complete purchase and pickup in the same server request, before
+            // physics can drop the newly unlocked box off its shelf.
+            if (!pickup.ServerTryPickUpItem(GetComponent<Item>()))
+            {
+                purchased.Value = false;
+                remaining.Value = 0;
+                if (price.Value > 0) money.ServerAddMoney(price.Value);
+            }
             return;
         }
         if (remaining.Value <= 0) return;
