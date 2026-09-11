@@ -1,0 +1,328 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1000
+GameObject:
+  m_Component:
+  - component: {fileID: 4000}
+  - component: {fileID: 1141}
+  - component: {fileID: 1142}
+  m_Layer: 0
+  m_Name: BoxStorageShelf
+  m_IsActive: 1
+--- !u!4 &4000
+Transform:
+  m_GameObject: {fileID: 1000}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children:
+  - {fileID: 2001}
+  - {fileID: 2011}
+  - {fileID: 2021}
+  - {fileID: 2031}
+  - {fileID: 2041}
+  - {fileID: 2051}
+  - {fileID: 2061}
+  - {fileID: 2071}
+  m_Father: {fileID: 0}
+--- !u!114 &1141
+MonoBehaviour:
+  m_GameObject: {fileID: 1000}
+  m_Enabled: 1
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  GlobalObjectIdHash: 3453021087
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  SynchronizeTransform: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 1
+  AutoObjectParentSync: 1
+--- !u!114 &1142
+MonoBehaviour:
+  m_GameObject: {fileID: 1000}
+  m_Enabled: 1
+  m_Script: {fileID: 11500000, guid: 078568b87ca142fbbfc0d9083ca35e56, type: 3}
+  compartments:
+  - {fileID: 2062}
+  - {fileID: 2072}
+--- !u!1 &2000
+GameObject:
+  m_Component:
+  - component: {fileID: 2001}
+  - component: {fileID: 2002}
+  - component: {fileID: 2003}
+  - component: {fileID: 2004}
+  m_Layer: 0
+  m_Name: Shelf board 0
+  m_IsActive: 1
+--- !u!4 &2001
+Transform:
+  m_GameObject: {fileID: 2000}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.05, z: 0}
+  m_LocalScale: {x: 1.6, y: 0.1, z: 1.5}
+  m_Children: []
+  m_Father: {fileID: 4000}
+--- !u!65 &2002
+BoxCollider:
+  m_GameObject: {fileID: 2000}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!33 &2003
+MeshFilter:
+  m_GameObject: {fileID: 2000}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &2004
+MeshRenderer:
+  m_GameObject: {fileID: 2000}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_RenderingLayerMask: 1
+  m_Materials:
+  - {fileID: 2100000, guid: b4561651da4c9134eb1aab73577d538a, type: 2}
+--- !u!1 &2010
+GameObject:
+  m_Component:
+  - component: {fileID: 2011}
+  - component: {fileID: 2012}
+  - component: {fileID: 2013}
+  - component: {fileID: 2014}
+  m_Layer: 0
+  m_Name: Shelf board 1
+  m_IsActive: 1
+--- !u!4 &2011
+Transform:
+  m_GameObject: {fileID: 2010}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.35, z: 0}
+  m_LocalScale: {x: 1.6, y: 0.1, z: 1.5}
+  m_Children: []
+  m_Father: {fileID: 4000}
+--- !u!65 &2012
+BoxCollider:
+  m_GameObject: {fileID: 2010}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!33 &2013
+MeshFilter:
+  m_GameObject: {fileID: 2010}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &2014
+MeshRenderer:
+  m_GameObject: {fileID: 2010}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_RenderingLayerMask: 1
+  m_Materials:
+  - {fileID: 2100000, guid: b4561651da4c9134eb1aab73577d538a, type: 2}
+--- !u!1 &2020
+GameObject:
+  m_Component:
+  - component: {fileID: 2021}
+  - component: {fileID: 2022}
+  - component: {fileID: 2023}
+  - component: {fileID: 2024}
+  m_Layer: 0
+  m_Name: Shelf board 2
+  m_IsActive: 1
+--- !u!4 &2021
+Transform:
+  m_GameObject: {fileID: 2020}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 2.65, z: 0}
+  m_LocalScale: {x: 1.6, y: 0.1, z: 1.5}
+  m_Children: []
+  m_Father: {fileID: 4000}
+--- !u!65 &2022
+BoxCollider:
+  m_GameObject: {fileID: 2020}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!33 &2023
+MeshFilter:
+  m_GameObject: {fileID: 2020}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &2024
+MeshRenderer:
+  m_GameObject: {fileID: 2020}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_RenderingLayerMask: 1
+  m_Materials:
+  - {fileID: 2100000, guid: b4561651da4c9134eb1aab73577d538a, type: 2}
+--- !u!1 &2030
+GameObject:
+  m_Component:
+  - component: {fileID: 2031}
+  - component: {fileID: 2032}
+  - component: {fileID: 2033}
+  - component: {fileID: 2034}
+  m_Layer: 0
+  m_Name: Left wall
+  m_IsActive: 1
+--- !u!4 &2031
+Transform:
+  m_GameObject: {fileID: 2030}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.8, y: 1.35, z: 0}
+  m_LocalScale: {x: 0.1, y: 2.7, z: 1.5}
+  m_Children: []
+  m_Father: {fileID: 4000}
+--- !u!65 &2032
+BoxCollider:
+  m_GameObject: {fileID: 2030}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!33 &2033
+MeshFilter:
+  m_GameObject: {fileID: 2030}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &2034
+MeshRenderer:
+  m_GameObject: {fileID: 2030}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_RenderingLayerMask: 1
+  m_Materials:
+  - {fileID: 2100000, guid: b4561651da4c9134eb1aab73577d538a, type: 2}
+--- !u!1 &2040
+GameObject:
+  m_Component:
+  - component: {fileID: 2041}
+  - component: {fileID: 2042}
+  - component: {fileID: 2043}
+  - component: {fileID: 2044}
+  m_Layer: 0
+  m_Name: Right wall
+  m_IsActive: 1
+--- !u!4 &2041
+Transform:
+  m_GameObject: {fileID: 2040}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.8, y: 1.35, z: 0}
+  m_LocalScale: {x: 0.1, y: 2.7, z: 1.5}
+  m_Children: []
+  m_Father: {fileID: 4000}
+--- !u!65 &2042
+BoxCollider:
+  m_GameObject: {fileID: 2040}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!33 &2043
+MeshFilter:
+  m_GameObject: {fileID: 2040}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &2044
+MeshRenderer:
+  m_GameObject: {fileID: 2040}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_RenderingLayerMask: 1
+  m_Materials:
+  - {fileID: 2100000, guid: b4561651da4c9134eb1aab73577d538a, type: 2}
+--- !u!1 &2050
+GameObject:
+  m_Component:
+  - component: {fileID: 2051}
+  - component: {fileID: 2052}
+  - component: {fileID: 2053}
+  - component: {fileID: 2054}
+  m_Layer: 0
+  m_Name: Back panel
+  m_IsActive: 1
+--- !u!4 &2051
+Transform:
+  m_GameObject: {fileID: 2050}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.35, z: 0.75}
+  m_LocalScale: {x: 1.7, y: 2.7, z: 0.1}
+  m_Children: []
+  m_Father: {fileID: 4000}
+--- !u!65 &2052
+BoxCollider:
+  m_GameObject: {fileID: 2050}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!33 &2053
+MeshFilter:
+  m_GameObject: {fileID: 2050}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &2054
+MeshRenderer:
+  m_GameObject: {fileID: 2050}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_RenderingLayerMask: 1
+  m_Materials:
+  - {fileID: 2100000, guid: b4561651da4c9134eb1aab73577d538a, type: 2}
+--- !u!1 &2060
+GameObject:
+  m_Component:
+  - component: {fileID: 2061}
+  - component: {fileID: 2062}
+  m_Layer: 0
+  m_Name: Lower compartment
+  m_IsActive: 1
+--- !u!4 &2061
+Transform:
+  m_GameObject: {fileID: 2060}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.7, z: -0.025}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 4000}
+--- !u!65 &2062
+BoxCollider:
+  m_GameObject: {fileID: 2060}
+  m_IsTrigger: 1
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.5, y: 1.2, z: 1.45}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &2070
+GameObject:
+  m_Component:
+  - component: {fileID: 2071}
+  - component: {fileID: 2072}
+  m_Layer: 0
+  m_Name: Upper compartment
+  m_IsActive: 1
+--- !u!4 &2071
+Transform:
+  m_GameObject: {fileID: 2070}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 2, z: -0.025}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 4000}
+--- !u!65 &2072
+BoxCollider:
+  m_GameObject: {fileID: 2070}
+  m_IsTrigger: 1
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.5, y: 1.2, z: 1.45}
+  m_Center: {x: 0, y: 0, z: 0}

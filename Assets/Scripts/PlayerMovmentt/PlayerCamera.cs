@@ -19,6 +19,7 @@ public class PlayerCamera : NetworkBehaviour
     private InputSystem_Actions inputs;
     private float rotationX = 0f; // up/down (camera only)
     private float rotationY = 0f; // left/right (whole player)
+    public void AddPlatformYaw(float degrees) => rotationY += degrees;
 
     public void ResetLookToCurrentPose()
     {
@@ -50,6 +51,7 @@ public class PlayerCamera : NetworkBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         ResetLookToCurrentPose();
+        OptionsMenu.ApplySavedSettingsToCamera(GetComponent<Camera>(), this);
     }
 
 

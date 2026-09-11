@@ -14,6 +14,9 @@ public class LobbyUIManager : NetworkBehaviour
 
     public TMP_Text joinCodeText;
 
+    private bool isJoinCodeVisible;
+    private GameManager nameSource;
+
     void Awake()
     {
         clientIds = new NetworkList<ulong>();
@@ -21,9 +24,11 @@ public class LobbyUIManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        joinCodeText.text = "CODE: " + GameManager.Instance.JoinCode;
+        SetJoinCodeVisibility(false);
         //We will be watching this on all clients so we know to update.
         clientIds.OnListChanged += OnListChanged;
+        nameSource = GameManager.Instance;
+        if (nameSource != null) nameSource.PlayerNamesChanged += Rebuild;
 
         if (IsServer)
         {
@@ -41,9 +46,39 @@ public class LobbyUIManager : NetworkBehaviour
         Rebuild();
     }
 
+    public void ToggleJoinCodeVisibility()
+    {
+        SetJoinCodeVisibility(!isJoinCodeVisible);
+    }
+
+    public void CopyJoinCode()
+    {
+        if (GameManager.Instance == null) return;
+
+        GUIUtility.systemCopyBuffer = GameManager.Instance.JoinCode;
+    }
+
+    private void SetJoinCodeVisibility(bool visible)
+    {
+        isJoinCodeVisible = visible;
+
+        if (joinCodeText == null) return;
+
+        string code = GameManager.Instance != null ? GameManager.Instance.JoinCode : string.Empty;
+        joinCodeText.text = visible
+            ? $"CODE: {code}"
+            : $"CODE: {MaskCode(code)}";
+    }
+
+    private static string MaskCode(string code)
+    {
+        return string.IsNullOrEmpty(code) ? "------" : new string('*', code.Length);
+    }
+
     public override void OnNetworkDespawn()
     {
         clientIds.OnListChanged -= OnListChanged;
+        if (nameSource != null) nameSource.PlayerNamesChanged -= Rebuild;
 
         if (IsServer)
         {
@@ -69,7 +104,7 @@ public class LobbyUIManager : NetworkBehaviour
 {
         var obj = Instantiate(entryPrefab, container);
         var color = GameManager.Instance.GetColor(clientId);
-        obj.GetComponent<PlayerLobbyUI>().SetName($"Player {clientId}", color);
+        obj.GetComponent<PlayerLobbyUI>().SetName(GameManager.Instance.GetPlayerName(clientId), color);
         players.Add(obj);
 }
     }

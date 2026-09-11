@@ -198,11 +198,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f7e6c84143a4ee7a88e6ef83abe91ffc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FoodIngredient
-  definition: {fileID: 0}
+  ShowTopMostFoldoutHeaderGroup: 1
+  definition: {fileID: 11400000, guid: 08b25977756cf7b33bab1b88a199681b, type: 2}
   useDefinitionDefaultStates: 1
   cookState: 0
   prepState: 0
   cookProgress: 0
+  cookedColor: {r: 0.4, g: 0.2, b: 0.05, a: 1}
+  burntColor: {r: 0.1, g: 0.05, b: 0, a: 1}
 --- !u!114 &6728738495080546863
 MonoBehaviour:
   m_ObjectHideFlags: 0

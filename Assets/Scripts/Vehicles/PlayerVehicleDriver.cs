@@ -69,6 +69,7 @@ public sealed class PlayerVehicleDriver : NetworkBehaviour, IVehicleInputSource
         if (seat == target) return;
         if (IsSeated) LeaveSeat(transform.position, transform.rotation);
         RestoreSeatCollisions();
+        if (TryGetComponent(out PlayerTruckPassenger passenger)) passenger.PrepareForSeat();
         seat = target;
         // A remote player's interpolated pose can lag its replicated seat state.
         // Keep it from pushing the truck during ownership and exit transitions.

@@ -18,6 +18,14 @@ public enum FoodPrepState
     Sliced
 }
 
+public enum FoodCookPreference
+{
+    TwentyFive = 25,
+    Fifty = 50,
+    SeventyFive = 75,
+    OneHundred = 100
+}
+
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Item))]
 public class FoodIngredient : NetworkBehaviour
@@ -68,6 +76,17 @@ public class FoodIngredient : NetworkBehaviour
     public bool IsOnGrill => currentGrill != null;
     public FoodAssemblyBase CurrentAssembly => currentAssembly;
     public bool IsInFoodAssembly => currentAssembly != null;
+
+    // Count-only boxes recreate their configured prefab, so accepting altered
+    // food would silently erase cooking/preparation progress.
+    public bool MatchesBoxStock(FoodIngredient prefab)
+    {
+        if (prefab == null || definition == null || definition != prefab.definition) return false;
+        FoodCookState expectedCook = prefab.useDefinitionDefaultStates ? definition.DefaultCookState : prefab.cookState;
+        FoodPrepState expectedPrep = prefab.useDefinitionDefaultStates ? definition.DefaultPrepState : prefab.prepState;
+        float expectedProgress = prefab.useDefinitionDefaultStates ? GetDefaultCookProgress(expectedCook) : prefab.cookProgress;
+        return CookState == expectedCook && PrepState == expectedPrep && Mathf.Abs(CookProgress - expectedProgress) < 0.00001f;
+    }
 
     /// <summary>
     /// Returns this ingredient's visible bounds projected onto an assembly's local

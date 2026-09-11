@@ -10,6 +10,7 @@ public class CustomerSpawner : NetworkBehaviour
     public Transform spawnPoint;
     public Transform exitPoint;
     public float spawnInterval = 10f;
+    public int desiredCustomerCount = 8;
 
     void Awake()
     {
@@ -18,33 +19,20 @@ public class CustomerSpawner : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        StartCoroutine(WaitForGameManager());
+        if (IsHost)
+            StartCoroutine(MaintainCustomerPopulation());
     }
 
-    IEnumerator WaitForGameManager()
+    IEnumerator MaintainCustomerPopulation()
     {
-        yield return new WaitUntil(() => GameManager.Instance != null);
-        GameManager.Instance.shiftStarted.OnValueChanged += OnShiftStarted;
-        Debug.Log("CustomerSpawner hooked into GameManager");
-    }
-
-    void OnDestroy()
-    {
-        if (GameManager.Instance != null)
-            GameManager.Instance.shiftStarted.OnValueChanged -= OnShiftStarted;
-    }
-
-    void OnShiftStarted(bool previous, bool current)
-    {
-        if (current && IsHost)
-            StartCoroutine(SpawnLoop());
-    }
-
-    IEnumerator SpawnLoop()
-    {
-        while (GameManager.Instance.shiftStarted.Value)
+        while (IsHost)
         {
-            SpawnCustomer();
+            int currentCustomerCount = FindObjectsByType<CustomerAI>(FindObjectsSortMode.None).Length;
+            int customersToSpawn = Mathf.Max(0, desiredCustomerCount - currentCustomerCount);
+
+            for (int i = 0; i < customersToSpawn; i++)
+                SpawnCustomer();
+
             yield return new WaitForSeconds(spawnInterval);
         }
     }

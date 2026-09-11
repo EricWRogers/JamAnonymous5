@@ -10,6 +10,11 @@ public class SpawnProp : MonoBehaviour
     [SerializeField] private int itemCost = 10;
     [SerializeField] private float restockDelay = 0.25f;
     [SerializeField] private bool logDebugMessages = true;
+    [Header("Ingredient Boxes")]
+
+    private IngredientBox ingredientBox;
+    private bool UsesIngredientBox => itemPrefab != null &&
+        (itemPrefab.GetComponent<FoodIngredient>() != null || itemPrefab.GetComponent<IngredientBox>() != null);
 
     private Item spawnedItem;
     private float nextRestockTime;
@@ -38,6 +43,15 @@ public class SpawnProp : MonoBehaviour
     private void Update()
     {
         if (!IsServerActive()) return;
+        if (UsesIngredientBox)
+        {
+            if (ingredientBox != null && ingredientBox.IsPurchased &&
+                (ingredientBox.GetComponent<Item>().IsHeld ||
+                 Vector3.Distance(ingredientBox.transform.position, itemSpawnPoint.position) > 0.4f))
+                ingredientBox = null;
+            if (ingredientBox == null && Time.time >= nextRestockTime) TryRestock();
+            return;
+        }
         if (Time.time < nextRestockTime) return;
 
         if (isRestockingBlocked)
@@ -61,6 +75,7 @@ public class SpawnProp : MonoBehaviour
     private void OnTriggerExit(Collider other)
     {
         if (!IsServerActive()) return;
+        if (UsesIngredientBox) return;
         if (spawnedItem == null) return;
 
         Item item = other.GetComponentInParent<Item>();
@@ -80,6 +95,29 @@ public class SpawnProp : MonoBehaviour
 
         if (spawnedItem != null)
         {
+            return false;
+        }
+
+        if (UsesIngredientBox)
+        {
+            if (ingredientBox != null) return false;
+            nextRestockTime = Time.time + 1f;
+            IngredientBox configuredBox = itemPrefab.GetComponent<IngredientBox>();
+            if (configuredBox != null)
+            {
+                if (!configuredBox.HasValidContents)
+                {
+                    Debug.LogError("The shelf's box prefab needs a valid Ingredient Prefab assigned.", this);
+                    return false;
+                }
+                ingredientBox = Instantiate(configuredBox, itemSpawnPoint.position, itemSpawnPoint.rotation);
+                ingredientBox.NetworkObject.Spawn(destroyWithScene: true);
+                return true;
+            }
+            // Legacy shelves must explicitly choose their ingredient-specific box.
+            // Stop retrying this invalid setup instead of logging every second.
+            Debug.LogWarning($"[SpawnProp] {name} still references a loose ingredient. Assign its configured box prefab or replace this component with IngredientBoxSpawner.", this);
+            enabled = false;
             return false;
         }
 

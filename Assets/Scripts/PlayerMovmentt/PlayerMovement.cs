@@ -35,6 +35,7 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField, Range(0f, 0.25f)] private float footstepPitchVariance = 0.08f;
 
     private Rigidbody rb;
+    private PlayerTruckPassenger passenger;
     private InputSystem_Actions inputs;
     private bool isGrounded;
     private float coyoteTimer;
@@ -47,6 +48,7 @@ public class PlayerMovement : NetworkBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        passenger = GetComponent<PlayerTruckPassenger>();
         rb.freezeRotation = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
@@ -76,6 +78,7 @@ public class PlayerMovement : NetworkBehaviour
 
     private void OnJump(InputAction.CallbackContext ctx)
     {
+        if (passenger != null && passenger.IsAboard) return;
         if (!IsOwner) return;
         if (NetworkSessionMenu.IsGameMenuOpen) return;
 
@@ -87,14 +90,14 @@ public class PlayerMovement : NetworkBehaviour
 
     void Update()
     {
-        isGrounded = CheckGrounded();
+        isGrounded = passenger != null && passenger.IsAboard ? passenger.Grounded : CheckGrounded();
 
         if (IsOwner)
         {
             if (NetworkSessionMenu.IsGameMenuOpen)
             {
                 moveInput = Vector2.zero;
-                StopHorizontalMovement();
+                if (passenger == null || !passenger.IsAboard) StopHorizontalMovement();
             }
             else
             {
@@ -115,7 +118,7 @@ public class PlayerMovement : NetworkBehaviour
         if (animator != null)
         {
             Vector3 horiz = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-            float speedForAnim = horiz.magnitude;
+            float speedForAnim = passenger != null && passenger.IsAboard ? passenger.RelativeSpeed : horiz.magnitude;
             bool jumping = !isGrounded;
 
             animator.SetFloat("Speed", speedForAnim);
@@ -128,6 +131,7 @@ public class PlayerMovement : NetworkBehaviour
 
     void FixedUpdate()
     {
+        if (passenger != null && passenger.IsAboard) return;
         if (!IsOwner) return;
         if (NetworkSessionMenu.IsGameMenuOpen)
         {
@@ -223,6 +227,7 @@ public class PlayerMovement : NetworkBehaviour
 
     private float GetPlanarSpeed()
     {
+        if (passenger != null && passenger.IsAboard) return passenger.RelativeSpeed;
         if (!IsOwner)
         {
             return remotePlanarSpeed;

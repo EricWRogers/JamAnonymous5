@@ -15,6 +15,9 @@ public class HUDManager : MonoBehaviour
     private GameObject menuPanelObject;
     private bool ownerResolved;
     private bool isLocalHud;
+    private PlayerPickup playerPickup;
+    private GameObject throwPowerPanel;
+    private RectTransform throwPowerFill;
 
     void Awake()
     {
@@ -78,9 +81,50 @@ public class HUDManager : MonoBehaviour
 
         if (!isLocalHud) return false;
 
+        playerPickup = GetComponentInParent<PlayerPickup>();
+        BuildThrowPowerBar();
         BuildMenu();
         OnGameMenuOpenChanged(NetworkSessionMenu.IsGameMenuOpen);
         return true;
+    }
+
+    private void LateUpdate()
+    {
+        if (throwPowerPanel == null) return;
+        bool show = isLocalHud && playerPickup != null && playerPickup.isActiveAndEnabled &&
+            playerPickup.IsChargingThrow && !NetworkSessionMenu.IsGameMenuOpen;
+        throwPowerPanel.SetActive(show);
+        if (show) throwPowerFill.anchorMax = new Vector2(playerPickup.ThrowCharge01, 1f);
+    }
+
+    private void BuildThrowPowerBar()
+    {
+        if (hudCanvas == null || playerPickup == null || throwPowerPanel != null) return;
+        throwPowerPanel = new GameObject("ThrowPower", typeof(RectTransform), typeof(Image));
+        throwPowerPanel.layer = UiLayer;
+        throwPowerPanel.transform.SetParent(hudCanvas.transform, false);
+        RectTransform rect = throwPowerPanel.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0f, -70f);
+        rect.sizeDelta = new Vector2(180f, 10f);
+        Image background = throwPowerPanel.GetComponent<Image>();
+        background.color = new Color32(28, 32, 36, 220);
+        background.raycastTarget = false;
+
+        var fill = new GameObject("Power", typeof(RectTransform), typeof(Image));
+        fill.layer = UiLayer;
+        fill.transform.SetParent(rect, false);
+        throwPowerFill = fill.GetComponent<RectTransform>();
+        throwPowerFill.anchorMin = Vector2.zero;
+        throwPowerFill.anchorMax = new Vector2(0f, 1f);
+        throwPowerFill.offsetMin = throwPowerFill.offsetMax = Vector2.zero;
+        Image fillImage = fill.GetComponent<Image>();
+        fillImage.color = new Color32(255, 196, 70, 255);
+        fillImage.raycastTarget = false;
+        CreateLabel(rect, "ThrowHint", "Release to throw", new Vector2(0.5f, 1f),
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 6f),
+            new Vector2(200f, 24f), 18f, Color.white);
+        throwPowerPanel.SetActive(false);
     }
 
     private void BuildMenu()

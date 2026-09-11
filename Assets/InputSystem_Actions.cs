@@ -183,6 +183,15 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""initialStateCheck"": false
                 },
                 {
+                    ""name"": ""Throw"",
+                    ""type"": ""Button"",
+                    ""id"": ""fbc18694-e395-47f5-a80c-84e9569ae628"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
                     ""name"": ""Drop"",
                     ""type"": ""Button"",
                     ""id"": ""a01786a6-6548-4920-a249-677f94414237"",
@@ -193,6 +202,17 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                 }
             ],
             ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""733dacbf-c304-4813-a512-8e9fd9fc1b06"",
+                    ""path"": ""<Keyboard>/q"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Keyboard&Mouse"",
+                    ""action"": ""Throw"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
                 {
                     ""name"": """",
                     ""id"": ""978bfe49-cc26-4a3d-ab7b-7d7a29327403"",
@@ -526,7 +546,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""1c04ea5f-b012-41d1-a6f7-02e963b52893"",
-                    ""path"": ""<Keyboard>/e"",
+                    ""path"": ""<Keyboard>/f"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": ""Keyboard&Mouse"",
@@ -592,7 +612,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""ff1a4354-3f28-49a0-b280-204da8a18bfd"",
-                    ""path"": ""<Keyboard>/q"",
+                    ""path"": ""<Keyboard>/e"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": "";Keyboard&Mouse"",
@@ -1205,6 +1225,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player_Next = m_Player.FindAction("Next", throwIfNotFound: true);
         m_Player_Sprint = m_Player.FindAction("Sprint", throwIfNotFound: true);
         m_Player_PickUp = m_Player.FindAction("PickUp", throwIfNotFound: true);
+        m_Player_Throw = m_Player.FindAction("Throw", throwIfNotFound: true);
         m_Player_Drop = m_Player.FindAction("Drop", throwIfNotFound: true);
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
@@ -1309,6 +1330,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_Next;
     private readonly InputAction m_Player_Sprint;
     private readonly InputAction m_Player_PickUp;
+    private readonly InputAction m_Player_Throw;
     private readonly InputAction m_Player_Drop;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
@@ -1361,6 +1383,10 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Player/PickUp".
         /// </summary>
         public InputAction @PickUp => m_Wrapper.m_Player_PickUp;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/Throw".
+        /// </summary>
+        public InputAction @Throw => m_Wrapper.m_Player_Throw;
         /// <summary>
         /// Provides access to the underlying input action "Player/Drop".
         /// </summary>
@@ -1421,6 +1447,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @PickUp.started += instance.OnPickUp;
             @PickUp.performed += instance.OnPickUp;
             @PickUp.canceled += instance.OnPickUp;
+            @Throw.started += instance.OnThrow;
+            @Throw.performed += instance.OnThrow;
+            @Throw.canceled += instance.OnThrow;
             @Drop.started += instance.OnDrop;
             @Drop.performed += instance.OnDrop;
             @Drop.canceled += instance.OnDrop;
@@ -1465,6 +1494,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @PickUp.started -= instance.OnPickUp;
             @PickUp.performed -= instance.OnPickUp;
             @PickUp.canceled -= instance.OnPickUp;
+            @Throw.started -= instance.OnThrow;
+            @Throw.performed -= instance.OnThrow;
+            @Throw.canceled -= instance.OnThrow;
             @Drop.started -= instance.OnDrop;
             @Drop.performed -= instance.OnDrop;
             @Drop.canceled -= instance.OnDrop;
@@ -1838,6 +1870,13 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnPickUp(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Throw" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnThrow(InputAction.CallbackContext context);
         /// <summary>
         /// Method invoked when associated input action "Drop" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>

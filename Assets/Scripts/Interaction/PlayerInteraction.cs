@@ -35,10 +35,16 @@ public class PlayerInteraction : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsOwner) return;
+        if (!IsOwner || !IsSpawned) return;
+        if (NetworkSessionMenu.IsGameMenuOpen) { CancelHoldInteract(); return; }
 
         if (inputs.Player.Interact.WasPressedThisFrame())
         {
+            if (TryGetComponent(out PlayerPickup pickup) && pickup.TryDeliverFromView())
+            {
+                CancelHoldInteract();
+                return;
+            }
             if (TryGetInteractable(out IInteractable interactable))
             {
                 interactable.Interact(this);
@@ -151,6 +157,14 @@ public class PlayerInteraction : NetworkBehaviour
             ref hitAnything
         );
 
+        // A shelf touched by the wider assistance cast must not hide an item
+        // directly under the crosshair. Resolve the direct ray independently.
+        if (closestInteractable != null && closestDistance <= closestBlockingDistance + 0.001f)
+            return true;
+        closestInteractable = null;
+        closestDistance = float.MaxValue;
+        closestBlockingDistance = float.MaxValue;
+
         CheckHits(
             sphereCastHits,
             sphereHitCount,
@@ -236,9 +250,15 @@ public class PlayerInteraction : NetworkBehaviour
 
     private IInteractable GetInteractableFromHit(RaycastHit hit)
     {
+        IngredientBox box = hit.collider.GetComponentInParent<IngredientBox>();
+        if (box != null) return box;
+        Item item = hit.collider.GetComponentInParent<Item>();
+        if (item != null && !item.IsHeld && TryGetComponent(out PlayerPickup pickup) && !pickup.IsHoldingItem())
+            return item;
         InteractableTarget target = hit.collider.GetComponentInParent<InteractableTarget>();
 
-        if (target != null && target.TryGetInteractable(out IInteractable targetInteractable))
+        if (target != null && target.TryGetInteractable(out IInteractable targetInteractable) &&
+            CanTargetInteraction(targetInteractable, hit.collider))
         {
             return targetInteractable;
         }
@@ -247,13 +267,21 @@ public class PlayerInteraction : NetworkBehaviour
 
         for (int i = 0; i < behaviours.Length; i++)
         {
-            if (behaviours[i] is IInteractable interactable)
+            if (behaviours[i] is IInteractable interactable && behaviours[i] is not Item &&
+                CanTargetInteraction(interactable, hit.collider))
             {
                 return interactable;
             }
         }
 
-        return null;
+        return hit.collider.GetComponentInParent<Item>();
+    }
+
+    private bool CanTargetInteraction(IInteractable interactable, Collider hitCollider)
+    {
+        if (interactable is not VehicleDriverSeat seat) return true;
+        if (!seat.IsEntryInteractionCollider(hitCollider)) return false;
+        return !TryGetComponent(out PlayerPickup pickup) || !pickup.IsHoldingItem();
     }
 
     private void LogHit(RaycastHit hit, string message)

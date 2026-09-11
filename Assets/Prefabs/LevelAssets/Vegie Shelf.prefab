@@ -734,7 +734,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc72a01f5831544927e145852be65c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnProp
-  itemPrefab: {fileID: 822969488720117844, guid: dcc8dda184f4404388d7a90c244d0d9e, type: 3}
+  itemPrefab: {fileID: 4247917148151544127, guid: 35937893ad1fa2e46a370e480fea319e, type: 3}
   itemSpawnPoint: {fileID: 8211025956782877632}
   itemCost: 5
   restockDelay: 0.25
@@ -980,7 +980,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc72a01f5831544927e145852be65c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnProp
-  itemPrefab: {fileID: 1987677979384464851, guid: 9430958da496b0a1d9e209ddc0b1b221, type: 3}
+  itemPrefab: {fileID: 5005333360628254794, guid: d80135c30bfc4dd44877007f03b2540f, type: 3}
   itemSpawnPoint: {fileID: 920416457998566225}
   itemCost: 5
   restockDelay: 0.25

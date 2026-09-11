@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Collections;
 using Unity.Netcode;  
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
@@ -6,8 +7,16 @@ using System.Collections;
 public class GameManager : NetworkBehaviour
 {
     public static GameManager Instance;
+    private NetworkList<PlayerNameEntry> playerNames;
+    public event System.Action PlayerNamesChanged;
 
-    public string JoinCode;
+    private readonly NetworkVariable<FixedString64Bytes> networkJoinCode = new(
+        new FixedString64Bytes(),
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    public string JoinCode => networkJoinCode.Value.ToString();
 
     public NetworkVariable<float> shiftTimer = new();
     public NetworkVariable<bool> shiftStarted = new();
@@ -34,6 +43,7 @@ public class GameManager : NetworkBehaviour
 
     void Awake()
     {
+        playerNames = new NetworkList<PlayerNameEntry>();
         if (Instance != null)
         {
             Destroy(gameObject);
@@ -42,6 +52,54 @@ public class GameManager : NetworkBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        playerNames.OnListChanged += OnPlayerNamesChanged;
+        if (IsServer) NetworkManager.OnClientDisconnectCallback += RemovePlayerName;
+        if (IsClient) SubmitPlayerNameServerRpc(new FixedString64Bytes(PlayerIdentity.SavedName));
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        playerNames.OnListChanged -= OnPlayerNamesChanged;
+        if (NetworkManager != null) NetworkManager.OnClientDisconnectCallback -= RemovePlayerName;
+    }
+
+    public string GetPlayerName(ulong clientId)
+    {
+        foreach (var entry in playerNames)
+            if (entry.ClientId == clientId && entry.Name.Length > 0) return entry.Name.ToString();
+        return $"Player {clientId}";
+    }
+
+    private void OnPlayerNamesChanged(NetworkListEvent<PlayerNameEntry> change) => PlayerNamesChanged?.Invoke();
+
+    [ServerRpc(RequireOwnership = false)]
+    private void SubmitPlayerNameServerRpc(FixedString64Bytes name, ServerRpcParams rpcParams = default)
+    {
+        // Identify the caller on the server; clients cannot rename someone else.
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        if (!NetworkManager.ConnectedClients.ContainsKey(clientId)) return;
+        var entry = new PlayerNameEntry
+        {
+            ClientId = clientId,
+            Name = new FixedString64Bytes(PlayerIdentity.Normalize(name.ToString()))
+        };
+        for (int i = 0; i < playerNames.Count; i++)
+        {
+            if (playerNames[i].ClientId != clientId) continue;
+            playerNames[i] = entry;
+            return;
+        }
+        playerNames.Add(entry);
+    }
+
+    private void RemovePlayerName(ulong clientId)
+    {
+        for (int i = playerNames.Count - 1; i >= 0; i--)
+            if (playerNames[i].ClientId == clientId) playerNames.RemoveAt(i);
     }
 
     public override void OnDestroy()
@@ -56,7 +114,8 @@ public class GameManager : NetworkBehaviour
 
     public void SetJoinCode(string code)
     {
-        JoinCode = code;
+        if (!IsServer) return;
+        networkJoinCode.Value = new FixedString64Bytes(code ?? string.Empty);
     }
 
 

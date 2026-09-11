@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -11,8 +12,13 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkObject))]
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(Collider))]
-public class Item : NetworkBehaviour
+[DefaultExecutionOrder(-120)]
+public class Item : NetworkBehaviour, IInteractable
 {
+    public void Interact(PlayerInteraction interactor)
+    {
+        if (interactor.TryGetComponent(out PlayerPickup pickup)) pickup.RequestPickUpItem(this);
+    }
     [Header("Item Info")]
     public string itemName = "Item";
     public ItemType itemType = ItemType.Food;
@@ -33,6 +39,125 @@ public class Item : NetworkBehaviour
     private readonly Dictionary<Collider, bool> colliderStatesBeforeHold = new();
 
     private const ulong NoHolder = ulong.MaxValue;
+    private readonly NetworkVariable<TruckRelativePose> surfacePose = new(TruckRelativePose.Detached);
+    private TruckTransformSuspension surfaceSync;
+    private bool resolvedSurface;
+    private readonly List<(Collider item, Collider truck)> surfaceCollisionPairs = new();
+    public bool IsSurfaceAttached => surfacePose.Value.Support != TruckRelativePose.None;
+    public bool IsAttachedTo(NetworkObject support) => support != null && IsSurfaceAttached && surfacePose.Value.Support == support.NetworkObjectId;
+    public Vector3 AttachmentWorldPosition => TryGetSurface(out NetworkObject support)
+        ? support.transform.TransformPoint(surfacePose.Value.Position) : transform.position;
+    public VehicleKitchen AttachedKitchen
+    {
+        get
+        {
+            Item current = this;
+            for (int i = 0; i < 16; i++)
+            {
+                if (!current.TryGetSurface(out NetworkObject support))
+                {
+                    current = current.transform.parent != null ? current.transform.parent.GetComponentInParent<Item>() : null;
+                    if (current == null || current == this) return null;
+                    continue;
+                }
+                VehicleKitchen kitchen = support.GetComponentInParent<VehicleKitchen>();
+                if (kitchen != null) return kitchen;
+                current = support.GetComponent<Item>();
+                if (current == null || current == this) return null;
+            }
+            return null;
+        }
+    }
+    private bool TryGetSurface(out NetworkObject support)
+    {
+        support = null;
+        return IsSurfaceAttached && NetworkManager != null &&
+            NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(surfacePose.Value.Support, out support);
+    }
+    public bool ServerAttachToSurface(NetworkObject support, Vector3 position, Quaternion rotation)
+    {
+        if (!IsServer || IsHeld || support == null || !support.IsSpawned || support == NetworkObject) return false;
+        surfacePose.Value = new TruckRelativePose { Support = support.NetworkObjectId,
+            Position = support.transform.InverseTransformPoint(position),
+            Rotation = Quaternion.Inverse(support.transform.rotation) * rotation };
+        FollowSurface();
+        return true;
+    }
+    private void OnSurfaceChanged(TruckRelativePose previous, TruckRelativePose current)
+    {
+        if (current.Support == TruckRelativePose.None)
+        {
+            resolvedSurface = false;
+            surfaceSync?.Restore();
+            surfaceSync = null;
+            ApplyHeldState(IsHeld || localParentLocked);
+        }
+        else FollowSurface();
+    }
+    private void FollowSurface(int depth = 0)
+    {
+        if (IsHeld || localParentLocked || depth >= 16) return;
+        // Keep pending late-join attachments stationary until their support arrives.
+        if (networkTransform != null && surfaceSync == null) surfaceSync = new TruckTransformSuspension(networkTransform);
+        surfaceSync?.Suspend();
+        if (rb != null) rb.isKinematic = true;
+        RestoreSuppressedColliders();
+        if (!TryGetSurface(out NetworkObject support))
+        {
+            if (IsServer && resolvedSurface) surfacePose.Value = TruckRelativePose.Detached;
+            return;
+        }
+        resolvedSurface = true;
+        if (support.TryGetComponent(out Item supportingItem) && supportingItem.IsSurfaceAttached)
+            supportingItem.FollowSurface(depth + 1);
+        TruckRelativePose pose = surfacePose.Value;
+        SetWorldPose(support.transform.TransformPoint(pose.Position), support.transform.rotation * pose.Rotation);
+        SuppressSurfaceCollisions();
+    }
+
+    private void SuppressSurfaceCollisions()
+    {
+        VehicleKitchen kitchen = AttachedKitchen;
+        if (kitchen == null) return;
+        Rigidbody truckBody = kitchen.GetComponent<Rigidbody>();
+        foreach (Collider own in GetComponentsInChildren<Collider>(true))
+        foreach (Collider other in kitchen.GetComponentsInChildren<Collider>(true))
+        {
+            if (own == other || own.isTrigger || other.isTrigger || other.attachedRigidbody != truckBody) continue;
+            var pair = (own, other);
+            if (!surfaceCollisionPairs.Contains(pair) && !Physics.GetIgnoreCollision(own, other))
+                surfaceCollisionPairs.Add(pair);
+        }
+        UpdateSurfaceCollisions(false);
+    }
+
+    private void UpdateSurfaceCollisions(bool release)
+    {
+        for (int i = surfaceCollisionPairs.Count - 1; i >= 0; i--)
+        {
+            var pair = surfaceCollisionPairs[i];
+            if (pair.item == null || pair.truck == null) { surfaceCollisionPairs.RemoveAt(i); continue; }
+            // Disabling held colliders can reset IgnoreCollision. Reapply until
+            // release has actually cleared the truck, preventing a separation kick.
+            bool separated = pair.item.enabled && pair.truck.enabled &&
+                !pair.item.bounds.Intersects(pair.truck.bounds);
+            if (release && separated)
+            {
+                Physics.IgnoreCollision(pair.item, pair.truck, false);
+                surfaceCollisionPairs.RemoveAt(i);
+            }
+            else Physics.IgnoreCollision(pair.item, pair.truck, true);
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        if (!IsSpawned) return;
+        if (IsSurfaceAttached && !IsHeld && !localParentLocked) FollowSurface();
+        // Assembly children may have a local parent instead of their own surface state.
+        else if (AttachedKitchen != null) SuppressSurfaceCollisions();
+        else UpdateSurfaceCollisions(!IsHeld);
+    }
 
     private NetworkVariable<ulong> holderClientId = new NetworkVariable<ulong>(
         NoHolder,
@@ -41,6 +166,13 @@ public class Item : NetworkBehaviour
     );
 
     public bool IsHeld => holderClientId.Value != NoHolder;
+
+    public bool IsColliderEnabledAfterRelease(Collider collider)
+    {
+        if (collider == null || !collider.gameObject.activeInHierarchy) return false;
+        if (colliderStatesBeforeHold.TryGetValue(collider, out bool wasEnabled)) return wasEnabled;
+        return collider.enabled;
+    }
 
     private void Awake()
     {
@@ -61,6 +193,7 @@ public class Item : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         holderClientId.OnValueChanged += OnHolderChanged;
+        surfacePose.OnValueChanged += OnSurfaceChanged;
         ApplyHeldState(IsHeld);
 
         if (IsHeld)
@@ -71,13 +204,20 @@ public class Item : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        foreach (var pair in surfaceCollisionPairs)
+            if (pair.item != null && pair.truck != null) Physics.IgnoreCollision(pair.item, pair.truck, false);
+        surfaceCollisionPairs.Clear();
         holderClientId.OnValueChanged -= OnHolderChanged;
+        surfacePose.OnValueChanged -= OnSurfaceChanged;
+        surfaceSync?.Restore();
+        surfaceSync = null;
         localParentLocked = false;
         DetachFromHolder(worldPositionStays: true);
     }
 
     private void LateUpdate()
     {
+        if (IsSurfaceAttached && !IsHeld && !localParentLocked) { FollowSurface(); return; }
         if (IsHeld)
         {
             SuppressCollidersWhileHeld();
@@ -85,9 +225,19 @@ public class Item : NetworkBehaviour
 
         if (localParentLocked) return;
         if (!IsHeld) return;
+        if (TryGetComponent(out IngredientBox box) && TryGetHolder(out PlayerPickup holder) &&
+            holder.holdPoint != null && transform.parent == holder.holdPoint)
+        {
+            transform.localPosition = box.GetCarryOffset(holder);
+        }
         if (transform.parent != null) return;
 
         TryAttachToHolder();
+    }
+
+    private void Update()
+    {
+        if (IsSpawned && IsSurfaceAttached && !IsHeld && !localParentLocked) FollowSurface();
     }
 
     private void OnHolderChanged(ulong oldValue, ulong newValue)
@@ -121,6 +271,7 @@ public class Item : NetworkBehaviour
         if (!holder.NetworkObject.IsSpawned) return false;
         if (IsHeld) return false;
 
+        surfacePose.Value = TruckRelativePose.Detached;
         UnlockLocalParent();
         cachedHolder = holder;
         holderClientId.Value = holder.OwnerClientId;
@@ -147,6 +298,9 @@ public class Item : NetworkBehaviour
         }
 
         ApplyHeldState(false);
+        if (networkTransform != null && networkTransform.IsSpawned &&
+            (networkTransform.IsServerAuthoritative() || networkTransform.IsOwner))
+            networkTransform.Teleport(dropPosition, dropRotation, transform.localScale);
     }
 
     public void ServerStopHoldingPreserveWorldPose()
@@ -179,6 +333,40 @@ public class Item : NetworkBehaviour
     public void LockLocalParentPreserveWorldScale(Transform parent, Vector3 localPosition, Quaternion localRotation)
     {
         LockLocalParent(parent, localPosition, localRotation, preserveWorldScale: true);
+    }
+
+    public void ServerApplyThrow(Vector3 velocity, Transform thrower)
+    {
+        if (!IsServer || IsHeld || rb == null || rb.isKinematic || !ItemPlacement.IsFinite(velocity)) return;
+        rb.linearVelocity = velocity;
+        rb.WakeUp();
+        if (thrower != null) StartCoroutine(IgnoreThrowerUntilClear(thrower));
+    }
+
+    private IEnumerator IgnoreThrowerUntilClear(Transform thrower)
+    {
+        var pairs = new List<(Collider item, Collider player)>();
+        Collider[] playerColliders = thrower.GetComponentsInChildren<Collider>();
+        foreach (Collider itemCollider in GetComponentsInChildren<Collider>())
+        foreach (Collider playerCollider in playerColliders)
+        {
+            if (itemCollider == playerCollider || Physics.GetIgnoreCollision(itemCollider, playerCollider)) continue;
+            Physics.IgnoreCollision(itemCollider, playerCollider, true);
+            pairs.Add((itemCollider, playerCollider));
+        }
+        var step = new WaitForFixedUpdate();
+        float earliestRestore = Time.time + 0.15f;
+        bool overlapping;
+        do
+        {
+            yield return step;
+            overlapping = false;
+            foreach (var pair in pairs)
+                if (pair.item != null && pair.player != null && pair.item.enabled && pair.player.enabled &&
+                    pair.item.bounds.Intersects(pair.player.bounds)) { overlapping = true; break; }
+        } while (!IsHeld && (Time.time < earliestRestore || overlapping));
+        foreach (var pair in pairs)
+            if (pair.item != null && pair.player != null) Physics.IgnoreCollision(pair.item, pair.player, false);
     }
 
     /// <summary>
@@ -258,7 +446,8 @@ public class Item : NetworkBehaviour
             }
             else
             {
-                rb.isKinematic = false;
+                rb.isKinematic = IsSurfaceAttached || (IsSpawned && networkTransform != null &&
+                    (networkTransform.IsServerAuthoritative() ? !IsServer : !IsOwner));
                 rb.interpolation = defaultInterpolation;
             }
         }
@@ -337,7 +526,7 @@ public class Item : NetworkBehaviour
         }
 
         transform.SetParent(holder.holdPoint, worldPositionStays: false);
-        transform.localPosition = Vector3.zero;
+        transform.localPosition = TryGetComponent(out IngredientBox box) ? box.GetCarryOffset(holder) : Vector3.zero;
         transform.localRotation = Quaternion.identity;
         SetLocalScaleForWorldScale(worldScale, holder.holdPoint);
     }
