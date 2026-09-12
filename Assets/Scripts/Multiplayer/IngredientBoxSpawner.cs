@@ -16,7 +16,7 @@ public sealed class IngredientBoxSpawner : MonoBehaviour
     private Item stockedItem;
     private Vector3 stockedPosition;
     private float nextSpawnTime;
-    private bool reportedInvalidSetup;
+    private string reportedSetupError;
 
     private void Update()
     {
@@ -38,22 +38,32 @@ public sealed class IngredientBoxSpawner : MonoBehaviour
 
         if (Time.time < nextSpawnTime) return;
         nextSpawnTime = Time.time + 1f;
-        if (boxPrefab == null || !boxPrefab.HasValidContents ||
-            boxPrefab.GetComponent<NetworkObject>() == null || boxPrefab.GetComponent<Item>() == null ||
-            !manager.NetworkConfig.Prefabs.Contains(boxPrefab.gameObject))
+        string setupError = GetSetupError(manager);
+        if (setupError != null)
         {
-            if (!reportedInvalidSetup)
-                Debug.LogError("Assign a configured IngredientBox prefab and register it in the NetworkManager's prefab list.", this);
-            reportedInvalidSetup = true;
+            if (reportedSetupError != setupError) Debug.LogError(setupError, this);
+            reportedSetupError = setupError;
             return;
         }
 
-        reportedInvalidSetup = false;
+        reportedSetupError = null;
         Transform marker = spawnPoint != null ? spawnPoint : transform;
         stockedPosition = marker.position;
         stockedBox = Instantiate(boxPrefab, marker.position, marker.rotation);
         stockedItem = stockedBox.GetComponent<Item>();
         stockedBox.NetworkObject.Spawn(destroyWithScene: true);
+    }
+
+    private string GetSetupError(NetworkManager manager)
+    {
+        if (boxPrefab == null) return "Assign a Box Prefab to this IngredientBoxSpawner.";
+        if (boxPrefab.GetComponent<NetworkObject>() == null || boxPrefab.GetComponent<Item>() == null)
+            return $"Box prefab '{boxPrefab.name}' requires NetworkObject and Item components on its root.";
+        if (!boxPrefab.HasValidContents)
+            return $"Box prefab '{boxPrefab.name}' has invalid contents. Assign an Ingredient Prefab with FoodIngredient, Item, and NetworkObject on its root; a mesh-only prefab cannot be dispensed.";
+        if (!manager.NetworkConfig.Prefabs.Contains(boxPrefab.gameObject))
+            return $"Box prefab '{boxPrefab.name}' is missing from the active NetworkManager's network prefab lists.";
+        return null;
     }
 
     private void OnDrawGizmosSelected()

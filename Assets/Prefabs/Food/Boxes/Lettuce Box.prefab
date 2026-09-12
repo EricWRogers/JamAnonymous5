@@ -72,7 +72,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 8ad62b5c25bd44a5b7a7a5565c2cd56a, type: 2}
+  - {fileID: 2100000, guid: dc2b2d95b202b6edcb4d490ad6eebe88, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -198,10 +198,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::IngredientBox
   ShowTopMostFoldoutHeaderGroup: 1
-  ingredientPrefab: {fileID: 2283380054022409974, guid: 88a7d4555baf1d614b145eb94c2e75af, type: 3}
+  ingredientPrefab: {fileID: 69041660539441122, guid: 4751d0e17a15217c2bb3e43c1f5db7db, type: 3}
   configuredCapacity: 20
   configuredPrice: 0
   carryOffset: {x: 0, y: -1, z: 0.4}
+  lookHeightTravel: 0.65
   labelClearance: 0.08
 --- !u!114 &6562840559860650196
 MonoBehaviour:
