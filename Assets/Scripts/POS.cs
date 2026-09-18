@@ -30,7 +30,7 @@ public class POS : NetworkBehaviour
         }
 
         ApplyOrderText(networkOrderText.Value.ToString());
-        UpdatePanelClientRpc(true, false);
+        if (IsServer) UpdatePanelClientRpc(true, false);
     }
 
     public override void OnNetworkDespawn()
@@ -41,6 +41,12 @@ public class POS : NetworkBehaviour
 
     public void StartShift()
     {
+        var register = GetComponent<RegisterTest>();
+        if (register != null && register.RequiresOpenShop)
+        {
+            if (register.Shop != null) register.Shop.RequestOpen(true);
+            return;
+        }
         StartShiftServerRpc();
     }
 
@@ -70,7 +76,7 @@ public class POS : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void AddIngredientServerRpc(string ingredientName)
     {
-        if (string.IsNullOrWhiteSpace(ingredientName)) return;
+        if (!CanTakeOrders || string.IsNullOrWhiteSpace(ingredientName)) return;
 
         serverIngredientNames.Add(ingredientName);
         serverCookPercentages.Add(-1f);
@@ -80,7 +86,7 @@ public class POS : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void RemoveLastIngredientServerRpc()
     {
-        if (serverIngredientNames.Count == 0) return;
+        if (!CanTakeOrders || serverIngredientNames.Count == 0) return;
 
         serverIngredientNames.RemoveAt(serverIngredientNames.Count - 1);
         serverCookPercentages.RemoveAt(serverCookPercentages.Count - 1);
@@ -90,7 +96,7 @@ public class POS : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void SetLastCookPercentageServerRpc(int percentage)
     {
-        if (serverCookPercentages.Count == 0) return;
+        if (!CanTakeOrders || serverCookPercentages.Count == 0) return;
         serverCookPercentages[serverCookPercentages.Count - 1] = Mathf.Clamp(percentage, 0, 100);
         RefreshServerOrderText();
     }
@@ -128,6 +134,7 @@ public class POS : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     void StartShiftServerRpc()
     {
+        if (TryGetComponent<RegisterTest>(out var register) && register.RequiresOpenShop) return;
         GameManager.Instance.StartShiftServerRpc();
         UpdatePanelClientRpc(false, true);
     }
@@ -135,7 +142,7 @@ public class POS : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     void SubmitOrderServerRpc()
     {
-        if (serverIngredientNames.Count == 0) return;
+        if (!CanTakeOrders || serverIngredientNames.Count == 0) return;
 
         var names = new List<string>();
         for (int i = 0; i < serverIngredientNames.Count; i++)
@@ -146,7 +153,7 @@ public class POS : NetworkBehaviour
                 : serverIngredientNames[i]);
         }
 
-        RegisterTest.Instance.NotifyOrderSubmittedServerRpc(string.Join(",", names));
+        GetComponent<RegisterTest>().NotifyOrderSubmittedServerRpc(string.Join(",", names));
         serverIngredientNames.Clear();
         serverCookPercentages.Clear();
         RefreshServerOrderText();
@@ -166,13 +173,36 @@ public class POS : NetworkBehaviour
         serverIngredientNames.Clear();
         serverCookPercentages.Clear();
         RefreshServerOrderText();
-        UpdatePanelClientRpc(true, false);
+        if (IsServer) UpdatePanelClientRpc(true, false);
     }
 
     public void EndShift()
     {
+        var register = GetComponent<RegisterTest>();
+        if (register != null && register.RequiresOpenShop)
+        {
+            if (register.Shop != null) register.Shop.RequestOpen(false);
+            return;
+        }
         if (!NetworkManager.Singleton.IsHost) return;
         GameManager.Instance.EndShiftServerRpc();
+    }
+
+    private bool CanTakeOrders => GetComponent<RegisterTest>() == null || GetComponent<RegisterTest>().CanAcceptCustomers;
+
+    private void Update()
+    {
+        var register = GetComponent<RegisterTest>();
+        if (register == null || !register.RequiresOpenShop) return;
+        bool open = register.Shop != null && register.Shop.IsOpen;
+        if (startShift != null)
+        {
+            startShift.SetActive(!open);
+            var label = startShift.GetComponentInChildren<TMP_Text>(true);
+            if (label != null) label.text = register.Shop == null || register.Shop.State == FoodTruckShop.ShopState.Closed
+                ? "Open Truck" : "Shutters moving...";
+        }
+        if (ingredientSelect != null) ingredientSelect.SetActive(open);
     }
 
     public void CustomerEntered(Collider other)

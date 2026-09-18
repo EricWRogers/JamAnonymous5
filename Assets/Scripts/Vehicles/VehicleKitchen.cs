@@ -39,6 +39,8 @@ public sealed class VehicleKitchen : NetworkBehaviour
         previousPosition = transform.position;
         previousRotation = transform.rotation;
         Active.Add(this);
+        foreach (FoodTruckService service in FindObjectsByType<FoodTruckService>(FindObjectsSortMode.None))
+            if (service.gameObject.scene == gameObject.scene) service.Bind(transform);
         if (!IsServer) return;
         foreach (Station station in stations)
         {
@@ -80,6 +82,8 @@ public sealed class VehicleKitchen : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         Active.Remove(this);
+        foreach (FoodTruckService service in FindObjectsByType<FoodTruckService>(FindObjectsSortMode.None))
+            service.Unbind(transform);
         if (IsServer)
             foreach (NetworkObject station in spawnedStations)
                 if (station != null && station.IsSpawned) station.Despawn(true);

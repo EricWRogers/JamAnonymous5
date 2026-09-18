@@ -97,6 +97,8 @@ public sealed class VehicleController : NetworkBehaviour
     private int groundedWheelCount;
     private NetworkTransform networkTransform;
     private bool setupIsValid;
+    private FoodTruckShop shop;
+    public bool DriveLocked => shop != null && shop.DriveLocked;
     private bool settleOnNextPhysicsStep;
     private Vector3 previousVisualPosition;
     private float previousVisualYaw;
@@ -135,6 +137,7 @@ public sealed class VehicleController : NetworkBehaviour
         }
 
         networkTransform = GetComponent<NetworkTransform>();
+        shop = GetComponent<FoodTruckShop>();
         setupIsValid = ValidateSetup(logErrors: true);
 
         if (!setupIsValid)
@@ -188,6 +191,7 @@ public sealed class VehicleController : NetworkBehaviour
     {
         if (!CanSimulate) return;
         ClearInputInternal(applySafetyBrake: true);
+        ClearWheelForces();
         if (!vehicleBody.isKinematic)
         {
             vehicleBody.linearVelocity = Vector3.zero;
@@ -208,6 +212,13 @@ public sealed class VehicleController : NetworkBehaviour
         if (!setupIsValid || !CanRunAuthoritativePhysics())
         {
             return;
+        }
+
+        if (DriveLocked)
+        {
+            ClearInputInternal(applySafetyBrake: true);
+            ClearWheelForces();
+            return; // No wheel torque, anti-roll, or downforce while shutters are not closed.
         }
 
         // NetworkRigidbody owns this switch online; only enable offline simulation here.
@@ -306,6 +317,12 @@ public sealed class VehicleController : NetworkBehaviour
             return false;
         }
 
+        if (DriveLocked)
+        {
+            ClearInputInternal(applySafetyBrake: true);
+            ClearWheelForces();
+            return false;
+        }
         if (!input.HasFiniteValues)
         {
             ClearInputInternal(applySafetyBrake: true);

@@ -27,6 +27,12 @@ public class OrderManager : NetworkBehaviour
     [ClientRpc]
     void AddOrderClientRpc(ulong customerId, string ingredientNames)
     {
+        ApplyAddOrder(customerId, ingredientNames);
+    }
+
+    // Local state operations are shared by RPC delivery and edit-mode regression tests.
+    void ApplyAddOrder(ulong customerId, string ingredientNames)
+    {
         for (int i = 0; i < 3; i++)
         {
             if (slotIds[i] == 0)
@@ -39,6 +45,7 @@ public class OrderManager : NetworkBehaviour
         }
 
         backlog.Enqueue((customerId, ingredientNames));
+        OrdersUpdated?.Invoke();
     }
 
     public void ClearOrder(ulong customerId)
@@ -53,6 +60,12 @@ public class OrderManager : NetworkBehaviour
     [ClientRpc]
     void ClearOrderClientRpc(ulong customerId)
     {
+        ApplyClearOrder(customerId);
+    }
+
+    void ApplyClearOrder(ulong customerId)
+    {
+        if (customerId == 0) return;
         Debug.Log($"ClearOrderClientRpc received for {customerId}, checking {slotIds[0]}, {slotIds[1]}, {slotIds[2]}");
         for (int i = 0; i < 3; i++)
         {
@@ -74,6 +87,18 @@ public class OrderManager : NetworkBehaviour
                 return;
             }
         }
+        // Remove a queued order without changing FIFO order for remaining entries.
+        bool removed = false;
+        int count = backlog.Count;
+        for (int i = 0; i < count; i++)
+        {
+            var order = backlog.Dequeue();
+            if (!removed && order.Item1 == customerId)
+                removed = true;
+            else
+                backlog.Enqueue(order);
+        }
+        if (removed) OrdersUpdated?.Invoke();
     }
 
     public void ClearAllOrders()
@@ -84,6 +109,11 @@ public class OrderManager : NetworkBehaviour
 
     [ClientRpc]
     void ClearAllOrdersClientRpc()
+    {
+        ApplyClearAllOrders();
+    }
+
+    void ApplyClearAllOrders()
     {
         for (int i = 0; i < 3; i++)
         {
@@ -96,4 +126,13 @@ public class OrderManager : NetworkBehaviour
 
     public ulong GetSlotId(int slot) => slotIds[slot];
     public string GetSlotIngredients(int slot) => slotIngredients[slot];
+
+    public IEnumerable<(ulong CustomerId, string Ingredients)> GetActiveOrders()
+    {
+        for (int i = 0; i < slotIds.Length; i++)
+            if (slotIds[i] != 0)
+                yield return (slotIds[i], slotIngredients[i]);
+        foreach (var order in backlog)
+            yield return (order.Item1, order.Item2);
+    }
 }

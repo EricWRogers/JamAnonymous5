@@ -133,6 +133,7 @@ public sealed class VehicleDriverSeat : NetworkBehaviour, IInteractable
         ulong sender = rpc.Receive.SenderClientId;
         PlayerVehicleDriver player = ResolvePlayer(sender);
         if (!enabled || player == null) return;
+        if (vehicle.DriveLocked) { Reject(sender, "Close shop and wait for the shutters before driving."); return; }
         if (IsOccupied) { Reject(sender, "The driver's seat is occupied."); return; }
         if (player.IsSeated) { Reject(sender, "You are already seated."); return; }
         if (player.TryGetComponent(out PlayerPickup pickup) && pickup.IsHoldingItem())

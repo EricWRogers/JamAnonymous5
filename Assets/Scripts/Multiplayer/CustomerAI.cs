@@ -61,6 +61,7 @@ public class CustomerAI : NetworkBehaviour
     public Vector3 foodOffset = new Vector3(0, 0, 0.5f);
 
     private Item deliveredTray;
+    private bool orderCompleted;
 
     public Renderer customerRenderer;
 
@@ -95,6 +96,7 @@ public class CustomerAI : NetworkBehaviour
     public void TryEnterRestaurant()
     {
         if (!IsServer || hasDecidedToEnter || State != CustomerState.WalkingToRegister ||
+            RegisterTest.Instance == null || !RegisterTest.Instance.CanAcceptCustomers ||
             GameManager.Instance == null || !GameManager.Instance.shiftStarted.Value ||
             Time.time < nextBurgerTime || Time.time < nextEntryAttemptTime)
             return;
@@ -149,10 +151,32 @@ public class CustomerAI : NetworkBehaviour
         syncedIngredientNames = new List<string>(ingredientNames.Split(','));
     }
 
+    public bool HasReachableQueueDestination { get; private set; }
+
     public void SetQueueDestination(Vector3 position)
     {
         if (agent == null) agent = GetComponent<NavMeshAgent>();
-        agent.SetDestination(position);
+        HasReachableQueueDestination = false;
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
+        // Truck suspension/ramps must not pull pedestrian destinations into the air.
+        position.y = transform.position.y;
+        if (!NavMesh.SamplePosition(position, out NavMeshHit hit, 2f, agent.areaMask))
+        {
+            agent.ResetPath();
+            return;
+        }
+        if (agent.hasPath && (agent.destination - hit.position).sqrMagnitude < 0.01f)
+        {
+            HasReachableQueueDestination = agent.pathStatus == NavMeshPathStatus.PathComplete;
+            return;
+        }
+        var path = new NavMeshPath();
+        if (!agent.CalculatePath(hit.position, path) || path.status != NavMeshPathStatus.PathComplete)
+        {
+            agent.ResetPath();
+            return;
+        }
+        HasReachableQueueDestination = agent.SetPath(path);
     }
 
     [ClientRpc]
@@ -194,9 +218,13 @@ public class CustomerAI : NetworkBehaviour
 
             case CustomerState.WaitingForFood:
                 agent.ResetPath();
+                orderUI.StopYapping();
+                orderUI.ShowOrderNumber(customerId.Value);
+                UpdateOrderUIClientRpc((int)CustomerState.WaitingForFood);
                 break;
 
             case CustomerState.Eating:
+                RegisterTest.Instance.LeaveWaitingForFoodQueue(this);
                 UpdateOrderUIClientRpc((int)CustomerState.Eating);
                 StartCoroutine(EatAndLeave());
                 break;
@@ -237,27 +265,15 @@ public class CustomerAI : NetworkBehaviour
                 break;
 
             case CustomerState.InQueue:
-                if (ArrivedAt(agent.destination) && 
+                if (HasReachableQueueDestination && ArrivedAt(agent.destination) &&
                     RegisterTest.Instance.queue.Count > 0 && 
                     RegisterTest.Instance.queue[0] == this)
                     SetState(CustomerState.AtCounter);
                 break;
 
             case CustomerState.Yapping:
-                if (RegisterTest.Instance.OrderSubmitted)
-                {
-                    RegisterTest.Instance.ResetOrder();
-                    if (ClaimSeat())
-                    {
-                        SetState(CustomerState.WalkingToSeat);
-                    }
-                    else
-                    {
-                        RegisterTest.Instance.LeaveQueue(this);
-                        SetState(CustomerState.WaitingForFood);
-                        RegisterTest.Instance.JoinWaitingForFoodQueue(this);
-                    }
-                }
+                // Register transfers the submitting customer synchronously on the
+                // server; a shared bool polled by every AI could consume another order.
                 break;
 
             case CustomerState.WalkingToSeat:
@@ -274,8 +290,23 @@ public class CustomerAI : NetworkBehaviour
         }
     }
 
+    public void OnOrderSubmitted()
+    {
+        if (!IsServer || State != CustomerState.Yapping) return;
+        orderCompleted = false;
+        if (ClaimSeat())
+        {
+            SetState(CustomerState.WalkingToSeat);
+            return;
+        }
+        RegisterTest.Instance.LeaveQueue(this);
+        SetState(CustomerState.WaitingForFood);
+        RegisterTest.Instance.JoinWaitingForFoodQueue(this);
+    }
+
     bool ClaimSeat()
     {
+        if (RegisterTest.Instance != null && RegisterTest.Instance.TakeawayOnly) return false;
         var seats = FindObjectsByType<Seat>(FindObjectsSortMode.None);
         Debug.Log($"Found {seats.Length} seats");
         
@@ -350,8 +381,7 @@ public class CustomerAI : NetworkBehaviour
 
     public void DeliverFood()
     {
-        if (State != CustomerState.WaitingForFood) return;
-        if (IsInWaitingForFoodQueue && !RegisterTest.Instance.IsFirstWaitingForFoodCustomer(this)) return;
+        if (!IsServer || State != CustomerState.WaitingForFood) return;
         SetState(CustomerState.Eating);
     }
 
@@ -368,6 +398,7 @@ public class CustomerAI : NetworkBehaviour
                 orderUI.StartYappingNames(syncedIngredientNames);
                 break;
             case CustomerState.WalkingToSeat:
+            case CustomerState.WaitingForFood:
                 orderUI.StopYapping();
                 orderUI.ShowOrderNumber(customerId.Value);
                 break;
@@ -383,6 +414,8 @@ public class CustomerAI : NetworkBehaviour
 
     public void ReceiveFood(Item tray)
     {
+        if (!IsServer || orderCompleted || State != CustomerState.WaitingForFood || tray == null) return;
+        orderCompleted = true;
         if (IsInWaitingForFoodQueue)
             RegisterTest.Instance.LeaveWaitingForFoodQueue(this);
 
@@ -390,13 +423,15 @@ public class CustomerAI : NetworkBehaviour
 
         float score = ScoreOrder(tray);
         float maxScore = wantedIngredients.Count;
-        float scoreRatio = Mathf.Clamp01(score / maxScore);
+        float scoreRatio = maxScore > 0 ? Mathf.Clamp01(score / maxScore) : 0f;
 
         float flatRatePerIngredient = 2f; 
         int payout = Mathf.RoundToInt(wantedIngredients.Count * flatRatePerIngredient * scoreRatio);
 
         Debug.Log($"Order score: {score}/{maxScore}, Payout: ${payout:F2}");
 
+        GameManager.Instance.ServerRecordOrderResult(score, maxScore, payout);
+        GameManager.Instance.ServerClearOrder(customerId.Value);
         RestaurantMoney.Instance.ServerAddMoney(payout);
         ShowScoreClientRpc(score, maxScore);
         OrderManager.Instance.ClearOrder(customerId.Value);
@@ -414,6 +449,23 @@ public class CustomerAI : NetworkBehaviour
         LockFoodObjectClientRpc(tray.NetworkObject.NetworkObjectId);
         SetState(CustomerState.Eating);
         ShowScoreClientRpc(score, maxScore); 
+    }
+
+    public void ServerDismissForShopClose(bool awaitingFood)
+    {
+        if (!IsServer) return;
+        if (awaitingFood && !orderCompleted && State == CustomerState.WaitingForFood)
+        {
+            orderCompleted = true;
+            GameManager.Instance.ServerRecordOrderResult(0f, wantedIngredients.Count, 0);
+            GameManager.Instance.ServerClearOrder(customerId.Value);
+            if (OrderManager.Instance != null) OrderManager.Instance.ClearOrder(customerId.Value);
+            Debug.Log($"Order score: 0/{wantedIngredients.Count}, Payout: $0.00 (shop closed)");
+        }
+        IsInWaitingForFoodQueue = false;
+        if (State == CustomerState.Eating || State == CustomerState.Leaving) return;
+        orderUI.StopYapping();
+        SetState(CustomerState.Leaving);
     }
 
     [ClientRpc]

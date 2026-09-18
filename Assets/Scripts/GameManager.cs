@@ -20,6 +20,11 @@ public class GameManager : NetworkBehaviour
 
     public NetworkVariable<float> shiftTimer = new();
     public NetworkVariable<bool> shiftStarted = new();
+    // Both delivered meals and unfulfilled pickup orders use these replicated day totals.
+    public NetworkVariable<int> completedOrderCount = new();
+    public NetworkVariable<float> totalOrderScore = new();
+    public NetworkVariable<float> totalPossibleOrderScore = new();
+    public NetworkVariable<int> totalOrderPayout = new();
     public float maxShiftTime = 600f; //10 minutes. The huds know what to do with this. Should be 8pm is the end of shift.
 
     private readonly Color32[] palette = new Color32[]
@@ -121,26 +126,55 @@ public class GameManager : NetworkBehaviour
 
     void Update()
     {
+        if (!IsServer || !shiftStarted.Value || SceneManager.GetActiveScene().name != "Game") return;
+        shiftTimer.Value = Mathf.Min(shiftTimer.Value + Time.deltaTime, maxShiftTime);
+        if (shiftTimer.Value < maxShiftTime) return;
+        if (RegisterTest.Instance != null && RegisterTest.Instance.RequiresOpenShop)
+        {
+            if (RegisterTest.Instance.Shop != null) RegisterTest.Instance.Shop.ServerClose();
+            else ServerFinishShopShift();
+        }
+        else EndShiftServerRpc();
+    }
+
+    public void ServerBeginShopShift()
+    {
         if (!IsServer) return;
+        StopAllCoroutines(); // An old restaurant reset must not reset a newly opened POS.
+        completedOrderCount.Value = 0;
+        totalOrderScore.Value = 0;
+        totalPossibleOrderScore.Value = 0;
+        totalOrderPayout.Value = 0;
+        activeOrders.Clear();
+        SyncOrdersClientRpc(SerializeOrders());
+        shiftTimer.Value = 0;
+        shiftStarted.Value = true;
+    }
 
-        if (shiftTimer.Value >= maxShiftTime)
-        {
-            shiftStarted.Value = false;
-            shiftTimer.Value = 0f;
-            StartCoroutine(WaitForCustomersThenResetPOS());
-        }
+    public void ServerFinishShopShift()
+    {
+        if (!IsServer) return;
+        StopAllCoroutines();
+        shiftStarted.Value = false;
+        shiftTimer.Value = 0;
+        activeOrders.Clear();
+        SyncOrdersClientRpc(SerializeOrders());
+    }
 
+    public void ServerRecordOrderResult(float score, float possible, int payout)
+    {
+        if (!IsServer) return;
+        completedOrderCount.Value++;
+        totalOrderScore.Value += score;
+        totalPossibleOrderScore.Value += possible;
+        totalOrderPayout.Value += payout;
+    }
 
-        if (shiftStarted.Value && SceneManager.GetActiveScene().name == "Game")
-        {
-            shiftTimer.Value = Mathf.Min(shiftTimer.Value + Time.deltaTime, maxShiftTime);
-
-            if (shiftTimer.Value >= maxShiftTime)
-            {
-                shiftStarted.Value = false;
-                shiftTimer.Value = 0f;
-            }
-        }
+    public void ServerClearOrder(ulong id)
+    {
+        if (!IsServer) return;
+        activeOrders.RemoveAll(order => order.CustomerId == id);
+        SyncOrdersClientRpc(SerializeOrders());
     }
 
     public string GetFormattedTime()
@@ -184,9 +218,13 @@ public class GameManager : NetworkBehaviour
         }
     }
 
+    // The prefab register is absent before spawn and after despawn; truck scenes still fail closed.
+    private bool TruckRegisterUnavailable => RegisterTest.Instance == null && FindFirstObjectByType<FoodTruckService>() != null;
+
     [ServerRpc(RequireOwnership = false)]
     public void StartShiftServerRpc()
     {
+        if (TruckRegisterUnavailable || (RegisterTest.Instance != null && RegisterTest.Instance.RequiresOpenShop)) return;
         if (shiftStarted.Value) return; 
         shiftStarted.Value = true;
     }
@@ -195,6 +233,8 @@ public class GameManager : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void SubmitOrderServerRpc(ulong customerId)
     {
+        if (TruckRegisterUnavailable || (RegisterTest.Instance != null && !RegisterTest.Instance.CanAcceptCustomers)) return;
+        if (activeOrders.Exists(order => order.CustomerId == customerId)) return;
         activeOrders.Add(new Order
         {
             CustomerId = customerId,
@@ -267,7 +307,7 @@ public class GameManager : NetworkBehaviour
     void SyncOrdersClientRpc(string data)
     {
         activeOrders.Clear();
-        if (string.IsNullOrEmpty(data)) return;
+        if (string.IsNullOrEmpty(data)) { OrdersChanged?.Invoke(); return; }
 
         foreach (var entry in data.Split(';'))
         {
@@ -299,7 +339,7 @@ public class GameManager : NetworkBehaviour
     [ClientRpc]
     void ResetPOSClientRpc()
     {
-        var pos = FindFirstObjectByType<POS>();
+        var pos = RegisterTest.Instance != null ? RegisterTest.Instance.GetComponent<POS>() : null;
         if (pos != null)
             pos.ResetToStartShift();
     }
@@ -307,6 +347,8 @@ public class GameManager : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void EndShiftServerRpc()
     {
+        // Truck close requests use the shop RPC, which validates player proximity.
+        if (TruckRegisterUnavailable || (RegisterTest.Instance != null && RegisterTest.Instance.RequiresOpenShop)) return;
         shiftStarted.Value = false;
         shiftTimer.Value = 0f;
         StartCoroutine(WaitForCustomersThenResetPOS());
